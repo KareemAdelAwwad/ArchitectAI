@@ -125,3 +125,78 @@ export async function generatePlanWithGemini(input: ProjectInput): Promise<Proje
     throw new Error('Gemini output parse error');
   }
 }
+
+// Map of allowed section keys to a descriptor of expected structure
+const SECTION_SHAPES: Record<string, { type: 'tasks' | 'stringArray' }> = {
+  'tasks.frontend': { type: 'tasks' },
+  'tasks.backend': { type: 'tasks' },
+  'tasks.integration': { type: 'tasks' },
+  'tasks.deployment': { type: 'tasks' },
+  'waterfallPhases.design.databaseSchema': { type: 'stringArray' },
+  'waterfallPhases.design.apiEndpoints': { type: 'stringArray' },
+  'waterfallPhases.design.systemArchitecture': { type: 'stringArray' },
+  'waterfallPhases.design.uiDesign': { type: 'stringArray' },
+  'waterfallPhases.design.codingStandards': { type: 'stringArray' },
+  'waterfallPhases.analysis.functionalRequirements': { type: 'stringArray' },
+  'waterfallPhases.analysis.nonFunctionalRequirements': { type: 'stringArray' },
+  'waterfallPhases.analysis.userStories': { type: 'stringArray' },
+  'waterfallPhases.analysis.constraints': { type: 'stringArray' },
+  'waterfallPhases.analysis.integrations': { type: 'stringArray' },
+  'waterfallPhases.planning.scope': { type: 'stringArray' },
+  'waterfallPhases.planning.objectives': { type: 'stringArray' },
+  'waterfallPhases.planning.stakeholders': { type: 'stringArray' },
+  'waterfallPhases.planning.resources': { type: 'stringArray' },
+  'waterfallPhases.planning.risks': { type: 'stringArray' }
+};
+
+export async function refinePlanSectionWithGemini(plan: ProjectPlan, section: string, instruction: string): Promise<any> {
+  if (!process.env.GEMINI_API_KEY) throw new Error('Missing GEMINI_API_KEY');
+  if (!SECTION_SHAPES[section]) throw new Error('Unsupported section');
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: MODEL,
+    generationConfig: { temperature: 0.6, maxOutputTokens: 16000 }
+  });
+
+  const shape = SECTION_SHAPES[section];
+  const planJson = JSON.stringify(plan);
+  const prompt = `You will refine ONLY the specified section of a software project plan. Return STRICT JSON ONLY.
+Section key: ${section}
+Instruction: ${instruction || 'Improve quality'}
+Full current plan JSON for context (do not echo entirely, only use to understand context): ${planJson}
+
+Return format examples (NO markdown):
+{"section":"tasks.backend","value":[{"id":"t10","title":"...","description":"...","complexity":"Medium","estimatedHours":8,"dependencies":["t3"],"category":"backend","completed":false}]} for tasks arrays.
+{"section":"waterfallPhases.design.databaseSchema","value":["Entity: fields ...","Another entity ..."]} for string array sections.
+
+Rules:
+1. Preserve existing valid task ids; append new ids sequentially continuing the highest number if adding tasks.
+2. If removing tasks, ensure dependencies referencing removed ids are updated or removed.
+3. For tasks: maintain constraints from original generation rules (complexity ↔ hours). Use same category field.
+4. For string arrays: produce high-quality concise professional bullet strings (6-18 words each). No numbering.
+5. JSON must have exactly keys: section, value.
+6. Do NOT modify unrelated sections.
+7. value must not be empty unless instruction explicitly requests clearing.
+Begin.`;
+
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+  try {
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
+    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+    if (parsed.section !== section) throw new Error('Section mismatch in AI response');
+    if (shape.type === 'tasks') {
+      if (!Array.isArray(parsed.value)) throw new Error('Tasks value must be array');
+      parsed.value.forEach((t: Task) => { if (typeof t.completed !== 'boolean') t.completed = false; });
+    } else if (shape.type === 'stringArray') {
+      if (!Array.isArray(parsed.value)) throw new Error('Section value must be array');
+      parsed.value = parsed.value.map((v: any) => String(v));
+    }
+    return parsed.value;
+  } catch (e) {
+    console.error('Failed to parse section refine output', e, text);
+    throw new Error('Gemini section refine parse error');
+  }
+}

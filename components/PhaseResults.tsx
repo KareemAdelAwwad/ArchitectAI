@@ -207,7 +207,7 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                       'bg-green-500'
                     )}
                     {renderListSection(
-                      'API Design',
+                      'API Endpoints',
                       design.apiEndpoints,
                       <Code className="w-4 h-4" />,
                       'bg-purple-500'

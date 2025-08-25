@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +26,122 @@ export default function Home() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [editSection, setEditSection] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [isRefining, setIsRefining] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Derive JSON pointer-like options for refinement
+  const editableSections = [
+    'tasks.frontend',
+    'tasks.backend',
+    'tasks.integration',
+    'tasks.deployment',
+    'waterfallPhases.planning.scope',
+    'waterfallPhases.planning.objectives',
+    'waterfallPhases.planning.stakeholders',
+    'waterfallPhases.planning.resources',
+    'waterfallPhases.planning.risks',
+    'waterfallPhases.analysis.functionalRequirements',
+    'waterfallPhases.analysis.nonFunctionalRequirements',
+    'waterfallPhases.analysis.userStories',
+    'waterfallPhases.analysis.constraints',
+    'waterfallPhases.analysis.integrations',
+    'waterfallPhases.design.systemArchitecture',
+    'waterfallPhases.design.databaseSchema',
+    'waterfallPhases.design.apiEndpoints',
+    'waterfallPhases.design.uiDesign',
+    'waterfallPhases.design.codingStandards'
+  ];
+
+  const sectionLabels: Record<string, string> = {
+    'tasks.frontend': 'Tasks – Frontend',
+    'tasks.backend': 'Tasks – Backend',
+    'tasks.integration': 'Tasks – Integration & Testing',
+    'tasks.deployment': 'Tasks – Deployment & DevOps',
+    'waterfallPhases.planning.scope': 'Planning – Project Scope',
+    'waterfallPhases.planning.objectives': 'Planning – Objectives',
+    'waterfallPhases.planning.stakeholders': 'Planning – Stakeholders',
+    'waterfallPhases.planning.resources': 'Planning – Resources',
+    'waterfallPhases.planning.risks': 'Planning – Risks',
+    'waterfallPhases.analysis.functionalRequirements': 'Analysis – Functional Requirements',
+    'waterfallPhases.analysis.nonFunctionalRequirements': 'Analysis – Non-Functional Requirements',
+    'waterfallPhases.analysis.userStories': 'Analysis – User Stories',
+    'waterfallPhases.analysis.constraints': 'Analysis – Constraints',
+    'waterfallPhases.analysis.integrations': 'Analysis – External Integrations',
+    'waterfallPhases.design.systemArchitecture': 'Design – System Architecture',
+    'waterfallPhases.design.databaseSchema': 'Design – Database Schema',
+    'waterfallPhases.design.apiEndpoints': 'Design – API Endpoints',
+    'waterfallPhases.design.uiDesign': 'Design – UI / UX',
+    'waterfallPhases.design.codingStandards': 'Design – Coding Standards'
+  };
+
+  const openManualEdit = (section: string) => {
+    if (!projectPlan) return;
+    setEditSection(section);
+    // Extract current value into text (pretty JSON for tasks, newline list for arrays)
+    const value = section.split('.').reduce<any>((acc, key) => acc && acc[key], projectPlan);
+    if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
+      setEditText(JSON.stringify(value, null, 2));
+    } else if (Array.isArray(value)) {
+      setEditText(value.join('\n'));
+    } else {
+      setEditText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+    }
+  };
+
+  const applyManualEdit = () => {
+    if (!projectPlan || !editSection) return;
+    const parts = editSection.split('.');
+    const newPlan: any = { ...projectPlan, tasks: { ...projectPlan.tasks }, waterfallPhases: { ...projectPlan.waterfallPhases, planning: { ...projectPlan.waterfallPhases.planning }, analysis: { ...projectPlan.waterfallPhases.analysis }, design: { ...projectPlan.waterfallPhases.design } } };
+    let cursor = newPlan;
+    for (let i = 0; i < parts.length - 1; i++) cursor = cursor[parts[i]];
+    const last = parts[parts.length - 1];
+    try {
+      if (editSection.startsWith('tasks.')) {
+        // Expect JSON array of tasks
+        const parsed = JSON.parse(editText);
+        if (!Array.isArray(parsed)) throw new Error('Tasks section must be a JSON array');
+        cursor[last] = parsed.map((t: any) => ({ ...t, completed: !!t.completed }));
+      } else if (editSection.startsWith('waterfallPhases.')) {
+        // Expect newline separated list -> array
+        const arr = editText.split('\n').map(l => l.trim()).filter(Boolean);
+        cursor[last] = arr;
+      }
+      setProjectPlan(newPlan);
+      setEditSection(null);
+    } catch (e) {
+      alert('Failed to parse edit: ' + (e as Error).message);
+    }
+  };
+
+  const refineWithAI = async () => {
+    if (!projectPlan || !editSection) return;
+    setIsRefining(true);
+    try {
+      const res = await fetch('/api/refine-plan-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: currentPlanId, fullPlan: currentPlanId ? undefined : projectPlan, section: editSection, instruction: aiInstruction })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      // Merge into plan
+      const parts = data.section.split('.');
+      const newPlan: any = { ...projectPlan, tasks: { ...projectPlan.tasks }, waterfallPhases: { ...projectPlan.waterfallPhases, planning: { ...projectPlan.waterfallPhases.planning }, analysis: { ...projectPlan.waterfallPhases.analysis }, design: { ...projectPlan.waterfallPhases.design } } };
+      let cursor = newPlan;
+      for (let i = 0; i < parts.length - 1; i++) cursor = cursor[parts[i]];
+      cursor[parts[parts.length - 1]] = data.value;
+      setProjectPlan(newPlan);
+      // Refresh editor content with latest
+      openManualEdit(data.section);
+    } catch (e: any) {
+      alert('AI refine failed: ' + e.message);
+    } finally {
+      setIsRefining(false);
+    }
+  };
 
   const handleProjectSubmit = async (projectInput: ProjectInput) => {
     setCurrentStep('processing');
@@ -340,6 +458,62 @@ Generated by AI Project Planning Assistant
             <Button onClick={handleStartOver} variant="default">
               Start Over
             </Button>
+            {projectPlan && (
+              <>
+                <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }}>
+                  Edit / Refine Section
+                </Button>
+                <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Choose Section</label>
+                        <select
+                          className="mt-1 w-full border rounded px-2 py-1 text-sm"
+                          value={editSection || ''}
+                          onChange={(e) => openManualEdit(e.target.value)}
+                        >
+                          <option value="" disabled>Select a section...</option>
+                          {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
+                        <Textarea
+                          rows={10}
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          className="font-mono text-xs"
+                          disabled={!editSection}
+                          placeholder={editSection ? '' : 'Select a section first'}
+                        />
+                      </div>
+                      <Separator />
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
+                        <Textarea
+                          rows={3}
+                          placeholder="e.g., Add performance optimization tasks and clarify database indexing strategy"
+                          value={aiInstruction}
+                          onChange={e => setAiInstruction(e.target.value)}
+                          disabled={!editSection}
+                        />
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" disabled={!editSection || isRefining} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
+                          <Button type="button" variant="default" disabled={!editSection} onClick={applyManualEdit}>Apply Manual Edit</Button>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </>
+            )}
           </div>
         </div>
 
