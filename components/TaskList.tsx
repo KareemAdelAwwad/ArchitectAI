@@ -108,8 +108,8 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
               <div
                 key={task.id}
                 className={`p-4 border rounded-lg transition-all ${completedTasks.has(task.id)
-                    ? 'bg-green-50 border-green-200 opacity-75'
-                    : 'bg-white hover:shadow-md'
+                  ? 'bg-green-50 border-green-200 opacity-75'
+                  : 'bg-white hover:shadow-md'
                   }`}
               >
                 <div className="flex items-start gap-3">

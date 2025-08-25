@@ -22,21 +22,22 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
           ? items.split(/\n+|;+/).map(s => s.trim()).filter(Boolean)
           : Object.values(items).map(v => String(v));
     return (
-    <div className="space-y-3">
-      <h4 className="font-semibold flex items-center gap-2 text-gray-900">
-        {icon}
-        {title}
-      </h4>
-      <div className="space-y-2">
-        {safeItems.map((item, index) => (
-          <div key={index} className="flex items-start gap-2">
-            <div className={`w-2 h-2 rounded-full ${color} mt-2 flex-shrink-0`}></div>
-            <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
-          </div>
-        ))}
+      <div className="space-y-3">
+        <h4 className="font-semibold flex items-center gap-2 text-gray-900">
+          {icon}
+          {title}
+        </h4>
+        <div className="space-y-2">
+          {safeItems.map((item, index) => (
+            <div key={index} className="flex items-start gap-2">
+              <div className={`w-2 h-2 rounded-full ${color} mt-2 flex-shrink-0`}></div>
+              <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
-  ); };
+    );
+  };
 
   return (
     <div className="space-y-6">
