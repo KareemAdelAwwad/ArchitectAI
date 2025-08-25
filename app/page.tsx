@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -17,6 +17,7 @@ import ProjectInputForm from '@/components/ProjectInputForm';
 import TaskList from '@/components/TaskList';
 import PhaseResults from '@/components/PhaseResults';
 import ExportPlanButton from '@/components/ExportPlanButton';
+import { TopNav } from '@/components/TopNav';
 // import { generateProjectPlan } from '@/lib/projectPlanner';
 import { ProjectInput, ProjectPlan } from '@/types/project';
 
@@ -44,6 +45,16 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
     }
   }, [initialPlanId, initialIsOwner, initialCollaboratorRole]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // persist sidebar collapse state
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebarCollapsed');
+      if (saved) setSidebarCollapsed(saved === 'true');
+    } catch { }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed)); } catch { }
+  }, [sidebarCollapsed]);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [aiInstruction, setAiInstruction] = useState('');
@@ -161,70 +172,105 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
     }
   };
 
+  // Steps for generation (shared with UI display during processing)
+  const generationSteps = [
+    'Analyzing project scope',
+    'Defining stakeholders & objectives',
+    'Gathering functional requirements',
+    'Designing system architecture',
+    'Generating development tasks',
+    'Finalizing project plan'
+  ];
+  const processingStartRef = useRef<number | null>(null);
+  const [estimatedRemaining, setEstimatedRemaining] = useState<string>('');
+  const MIN_PROCESSING_MS = 60000; // enforce 1 minute experience
+  const [pendingPlan, setPendingPlan] = useState<ProjectPlan | null>(null);
+  const pendingPlanRef = useRef<ProjectPlan | null>(null);
+  useEffect(() => { pendingPlanRef.current = pendingPlan; }, [pendingPlan]);
+  useEffect(() => {
+    if (currentStep === 'processing') {
+      if (!processingStartRef.current) processingStartRef.current = Date.now();
+      const interval = setInterval(() => {
+        if (!processingStartRef.current) return;
+        const elapsed = Date.now() - processingStartRef.current;
+        const remainingMs = Math.max(0, MIN_PROCESSING_MS - elapsed);
+        const m = Math.floor(remainingMs / 60000);
+        const s = Math.floor((remainingMs % 60000) / 1000);
+        setEstimatedRemaining(`${m}m ${s.toString().padStart(2, '0')}s remaining`);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      processingStartRef.current = null;
+      setEstimatedRemaining('');
+    }
+  }, [currentStep, processingProgress]);
+
   const handleProjectSubmit = async (projectInput: ProjectInput) => {
     setCurrentStep('processing');
     setProcessingProgress(0);
+    setPendingPlan(null);
+    processingStartRef.current = Date.now();
 
-    // Simulate processing steps
-    const steps = [
-      'Analyzing project scope...',
-      'Defining stakeholders and objectives...',
-      'Gathering functional requirements...',
-      'Creating system architecture...',
-      'Generating development tasks...',
-      'Finalizing project plan...'
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setProcessingProgress((i + 1) * (100 / steps.length));
-    }
-
-    // Request AI-generated plan
-    let plan: ProjectPlan | null = null;
-    try {
-      const res = await fetch('/api/generate-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: projectInput })
-      });
-      if (!res.ok) {
-        throw new Error('AI generation failed');
-      }
-      plan = await res.json();
-    } catch (e) {
-      console.error('AI generation error, falling back to local planner', e);
-      const mod = await import('@/lib/projectPlanner');
-      plan = mod.generateProjectPlan(projectInput);
-    }
-    if (!plan) return;
-    setProjectPlan(plan);
-
-    // Save plan to database if user is authenticated
-    if (session?.user) {
+    // Kick off real plan generation in background
+    (async () => {
+      let plan: ProjectPlan | null = null;
       try {
-        const res = await fetch('/api/plans', {
+        const res = await fetch('/api/generate-plan', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include', // explicit to ensure cookies (session) sent
-          body: JSON.stringify({ plan }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: projectInput })
         });
-        if (res.ok) {
-          const saved = await res.json();
-          setCurrentPlanId(saved._id);
-          window.dispatchEvent(new CustomEvent('plan-saved'));
-        } else {
-          const text = await res.text();
-          console.error('Failed saving plan: status', res.status, 'body', text);
-        }
-      } catch (error) {
-        console.error('Error saving plan:', error);
+        if (!res.ok) throw new Error('AI generation failed');
+        plan = await res.json();
+      } catch (e) {
+        console.error('AI generation error, falling back to local planner', e);
+        const mod = await import('@/lib/projectPlanner');
+        plan = mod.generateProjectPlan(projectInput);
       }
-    }
+      if (plan) setPendingPlan(plan);
+    })();
 
-    setCurrentStep('results');
+    // Progress interval
+    const interval = setInterval(async () => {
+      if (!processingStartRef.current) return;
+      const elapsed = Date.now() - processingStartRef.current;
+      let pct = (elapsed / MIN_PROCESSING_MS) * 100;
+      const planReady = !!pendingPlanRef.current;
+      if (planReady && elapsed >= MIN_PROCESSING_MS) {
+        pct = 100;
+      } else if (pct >= 99) {
+        pct = 99; // hold at 99% until both conditions met
+      }
+      setProcessingProgress(pct);
+
+      if (pct === 100 && planReady) {
+        clearInterval(interval);
+        const finalPlan = pendingPlanRef.current!;
+        setProjectPlan(finalPlan);
+        // Save plan only now
+        if (session?.user) {
+          try {
+            const res = await fetch('/api/plans', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ plan: finalPlan })
+            });
+            if (res.ok) {
+              const saved = await res.json();
+              setCurrentPlanId(saved._id);
+              window.dispatchEvent(new CustomEvent('plan-saved'));
+            } else {
+              const text = await res.text();
+              console.error('Failed saving plan: status', res.status, 'body', text);
+            }
+          } catch (error) {
+            console.error('Error saving plan:', error);
+          }
+        }
+        setTimeout(() => { setCurrentStep('results'); }, 400); // slight delay for 100% visual
+      }
+    }, 500);
   };
 
   const handleStartOver = () => {
@@ -292,7 +338,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   // Show sign-in prompt if not authenticated
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" data-page>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
@@ -303,23 +349,16 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex justify-end mb-8">
-            <AuthButton />
-          </div>
+      <div className="min-h-screen" data-page>
+        <TopNav />
+        <div className="mx-auto max-w-6xl px-4 py-12">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6">
-              <Target className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-6 bg-gradient-to-tr from-blue-600 to-purple-600 shadow-lg ring-1 ring-black/5">
+              <Target className="w-8 h-8 text-white drop-shadow" />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              AI Project Planning Assistant
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-              Transform your ideas into actionable development plans using proven Waterfall methodology.
-              Sign in to save your plans and access them anytime.
-            </p>
-            <AuthButton />
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">ArchitectAI Project Planning</h1>
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">Turn raw ideas into structured, actionable engineering execution plans. Save, refine, collaborate.</p>
+            <div className="flex justify-center"><AuthButton /></div>
           </div>
         </div>
       </div>
@@ -327,250 +366,263 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   }
   if (currentStep === 'input') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
+      <div className="min-h-screen flex" data-page>
         <Sidebar
           onSelectPlan={handleSelectPlan}
           onNewProject={handleNewProject}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <div className="flex-1 container mx-auto px-4 py-8">
-          <div className="flex justify-end mb-8">
-            <AuthButton />
-          </div>
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6">
-              <Target className="w-8 h-8 text-white" />
+        <div className="flex-1 flex flex-col">
+          <TopNav onNewProject={handleNewProject} />
+          <div className="mx-auto w-full max-w-6xl px-4 py-10">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-6 bg-gradient-to-tr from-blue-600 to-purple-600 shadow-lg ring-1 ring-black/5">
+                <Target className="w-8 h-8 text-white drop-shadow" />
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight mb-4">Plan Faster. Ship Smarter.</h1>
+              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">Comprehensive task breakdowns, phase deliverables, estimates, and refinement tools — all generated and iterated with AI.</p>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
-              AI Project Planning Assistant
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Transform your ideas into actionable development plans using proven Waterfall methodology.
-              Get comprehensive task breakdowns, timeline estimates, and technical recommendations.
-            </p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <Card className="text-center hover:shadow-lg transition-shadow">
+            <div className="grid md:grid-cols-3 gap-6 mb-12">
+              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
+                <CardHeader>
+                  <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                  <CardTitle className="text-lg">Planning Phase</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Define scope, objectives, and project timeline</p>
+                </CardContent>
+              </Card>
+              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
+                <CardHeader>
+                  <Users className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                  <CardTitle className="text-lg">Analysis Phase</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Gather requirements and create user stories</p>
+                </CardContent>
+              </Card>
+              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
+                <CardHeader>
+                  <Code className="w-8 h-8 text-purple-500 mx-auto mb-2" />
+                  <CardTitle className="text-lg">Design Phase</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Create architecture and technical specifications</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="max-w-4xl mx-auto border-neutral-200 dark:border-neutral-800">
               <CardHeader>
-                <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <CardTitle className="text-lg">Planning Phase</CardTitle>
+                <CardTitle>Start Your Project Planning</CardTitle>
+                <CardDescription>
+                  Provide details about your project and let our AI guide you through comprehensive planning
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">Define scope, objectives, and project timeline</p>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Users className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                <CardTitle className="text-lg">Analysis Phase</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">Gather requirements and create user stories</p>
-              </CardContent>
-            </Card>
-            <Card className="text-center hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Code className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                <CardTitle className="text-lg">Design Phase</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">Create architecture and technical specifications</p>
+                <ProjectInputForm onSubmit={handleProjectSubmit} />
               </CardContent>
             </Card>
           </div>
-
-          <Card className="max-w-4xl mx-auto">
-            <CardHeader>
-              <CardTitle>Start Your Project Planning</CardTitle>
-              <CardDescription>
-                Provide details about your project and let our AI guide you through comprehensive planning
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProjectInputForm onSubmit={handleProjectSubmit} />
-            </CardContent>
-          </Card>
         </div>
       </div>
     );
   }
 
   if (currentStep === 'processing') {
+    const currentStepIndex = Math.min(generationSteps.length - 1, Math.floor((processingProgress / 100) * generationSteps.length));
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
+      <div className="min-h-screen flex" data-page>
         <Sidebar
           onSelectPlan={handleSelectPlan}
           onNewProject={handleNewProject}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <div className="flex-1 flex items-center justify-center">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4 mx-auto">
-                <Zap className="w-8 h-8 text-white animate-pulse" />
+        <div className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-2xl relative">
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-xl" aria-hidden="true"></div>
+            <div className="relative rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/40 shadow-xl p-10">
+              <div className="flex flex-col items-center text-center mb-8">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg ring-1 ring-black/5 mb-6 animate-pulse">
+                  <Zap className="w-10 h-10 text-white" />
+                </div>
+                <h1 className="text-2xl font-semibold tracking-tight mb-2">Generating Your Project Plan</h1>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-md">This usually takes between <span className="font-medium text-neutral-800 dark:text-neutral-200">2–4 minutes</span> depending on project complexity. Feel free to grab a coffee.</p>
               </div>
-              <CardTitle>Processing Your Project</CardTitle>
-              <CardDescription>Analyzing requirements and generating your comprehensive plan</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Progress value={processingProgress} className="w-full mb-4" />
-              <p className="text-center text-sm text-gray-600">
-                {processingProgress < 100 ? 'Please wait...' : 'Almost done!'}
-              </p>
-            </CardContent>
-          </Card>
+              <div className="mb-8">
+                <div className="h-3 rounded-full bg-neutral-200/70 dark:bg-neutral-800/70 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out" style={{ width: `${processingProgress}%` }} />
+                </div>
+                <div className="flex justify-between text-xs mt-2 text-neutral-600 dark:text-neutral-400">
+                  <span>{processingProgress < 100 ? `${processingProgress.toFixed(0)}%` : '100%'}</span>
+                  <span>{processingProgress < 100 ? estimatedRemaining : 'Finalizing...'}</span>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-8">
+                {generationSteps.map((s, i) => {
+                  const done = i < currentStepIndex;
+                  const active = i === currentStepIndex && processingProgress < 100;
+                  return (
+                    <li key={s} className={`flex items-center gap-3 text-sm rounded-md px-3 py-2 border transition-colors ${done ? 'border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300' : active ? 'border-blue-500/40 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 animate-pulse' : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'} `}>
+                      <span className="w-5 text-center">
+                        {done ? '✓' : active ? '•' : ''}
+                      </span>
+                      <span className="flex-1 truncate">{s}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-xs text-neutral-500 dark:text-neutral-500 text-center">Optimizing tasks, phases & estimates with AI models…</p>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex">
+    <div className="min-h-screen flex" data-page>
       <Sidebar
         onSelectPlan={handleSelectPlan}
         onNewProject={handleNewProject}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <div className="flex-1 container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Project Plan Generated</h1>
-            <p className="text-gray-600">Your comprehensive development roadmap is ready</p>
-          </div>
-          <div className="space-x-3">
-            <AuthButton />
-            {projectPlan && currentPlanId && (
-              <ExportPlanButton planId={currentPlanId} />
-            )}
-            <Button onClick={handleStartOver} variant="default">
-              Start Over
-            </Button>
-            {projectPlan && (isOwner || collaboratorRole === 'editor') && (
-              <>
-                <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }}>
-                  Edit / Refine Section
-                </Button>
-                <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium">Choose Section</label>
-                        <select
-                          className="mt-1 w-full border rounded px-2 py-1 text-sm"
-                          value={editSection || ''}
-                          onChange={(e) => openManualEdit(e.target.value)}
-                        >
-                          <option value="" disabled>Select a section...</option>
-                          {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
-                        <Textarea
-                          rows={10}
-                          value={editText}
-                          onChange={e => setEditText(e.target.value)}
-                          className="font-mono text-xs"
-                          disabled={!editSection}
-                          placeholder={editSection ? '' : 'Select a section first'}
-                        />
-                      </div>
-                      <Separator />
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
-                        <Textarea
-                          rows={3}
-                          placeholder="e.g., Add performance optimization tasks and clarify database indexing strategy"
-                          value={aiInstruction}
-                          onChange={e => setAiInstruction(e.target.value)}
-                          disabled={!editSection}
-                        />
-                        <div className="flex gap-2">
-                          <Button type="button" variant="outline" disabled={!editSection || isRefining} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
-                          <Button type="button" variant="default" disabled={!editSection} onClick={applyManualEdit}>Apply Manual Edit</Button>
+      <div className={`flex flex-col w-full transition-all duration-300 ease-out ${sidebarCollapsed ? 'pl-0' : ''}`}>
+        <TopNav onNewProject={handleNewProject} right={projectPlan && currentPlanId ? <ExportPlanButton planId={currentPlanId} /> : undefined} />
+        <div className={`px-6 py-10 transition-all duration-300 w-full max-w-[90rem] mx-auto ${sidebarCollapsed ? '' : ''}`}>
+          <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Project Plan Generated</h1>
+              <p className="text-neutral-600 dark:text-neutral-400">Your comprehensive development roadmap is ready</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {projectPlan && (isOwner || collaboratorRole === 'editor') && (
+                <>
+                  <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }}>
+                    Edit / Refine Section
+                  </Button>
+                  <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'}</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">Choose Section</label>
+                          <select
+                            className="mt-1 w-full border rounded px-2 py-1 text-sm"
+                            value={editSection || ''}
+                            onChange={(e) => openManualEdit(e.target.value)}
+                          >
+                            <option value="" disabled>Select a section...</option>
+                            {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
+                          <Textarea
+                            rows={10}
+                            value={editText}
+                            onChange={e => setEditText(e.target.value)}
+                            className="font-mono text-xs"
+                            disabled={!editSection}
+                            placeholder={editSection ? '' : 'Select a section first'}
+                          />
+                        </div>
+                        <Separator />
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
+                          <Textarea
+                            rows={3}
+                            placeholder="e.g., Add performance optimization tasks and clarify database indexing strategy"
+                            value={aiInstruction}
+                            onChange={e => setAiInstruction(e.target.value)}
+                            disabled={!editSection}
+                          />
+                          <div className="flex gap-2">
+                            <Button type="button" variant="outline" disabled={!editSection || isRefining} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
+                            <Button type="button" variant="default" disabled={!editSection} onClick={applyManualEdit}>Apply Manual Edit</Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </>
-            )}
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+            </div>
           </div>
+
+          {projectPlan && (
+            <div className="space-y-10">
+              <Card className="border-neutral-200 dark:border-neutral-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    {projectPlan.overview.title}
+                  </CardTitle>
+                  <CardDescription className="dark:text-neutral-400">{projectPlan.overview.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div>
+                      <h4 className="font-semibold mb-2 flex items-center gap-2">
+                        <Code className="w-4 h-4" />
+                        Project Type
+                      </h4>
+                      <Badge variant="secondary">{projectPlan.overview.projectType}</Badge>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 flex items-center gap-2">
+                        <Database className="w-4 h-4" />
+                        Tech Stack
+                      </h4>
+                      <div className="flex flex-wrap gap-1">
+                        {projectPlan.overview.techStack.map((tech, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {tech}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Timeline
+                      </h4>
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">{projectPlan.overview.timeline}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Tabs defaultValue="tasks" className="space-y-6">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="tasks">Development Tasks</TabsTrigger>
+                  <TabsTrigger value="phases">Waterfall Phases</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="tasks">
+                  <TaskList key={currentPlanId || projectPlan.overview.title} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
+                </TabsContent>
+
+                <TabsContent value="phases">
+                  <PhaseResults
+                    planning={projectPlan.waterfallPhases.planning}
+                    analysis={projectPlan.waterfallPhases.analysis}
+                    design={projectPlan.waterfallPhases.design}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
         </div>
-
-        {projectPlan && (
-          <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  {projectPlan.overview.title}
-                </CardTitle>
-                <CardDescription>{projectPlan.overview.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Code className="w-4 h-4" />
-                      Project Type
-                    </h4>
-                    <Badge variant="secondary">{projectPlan.overview.projectType}</Badge>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Database className="w-4 h-4" />
-                      Tech Stack
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {projectPlan.overview.techStack.map((tech, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {tech}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Timeline
-                    </h4>
-                    <p className="text-sm text-gray-600">{projectPlan.overview.timeline}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Tabs defaultValue="tasks" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="tasks">Development Tasks</TabsTrigger>
-                <TabsTrigger value="phases">Waterfall Phases</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="tasks">
-                <TaskList key={currentPlanId || projectPlan.overview.title} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
-              </TabsContent>
-
-              <TabsContent value="phases">
-                <PhaseResults
-                  planning={projectPlan.waterfallPhases.planning}
-                  analysis={projectPlan.waterfallPhases.analysis}
-                  design={projectPlan.waterfallPhases.design}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
       </div>
     </div>
   );

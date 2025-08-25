@@ -86,7 +86,6 @@ export default function Sidebar({
 
   const leavePlan = async (planId: string) => {
     try {
-      // current user id from session
       const userId = (session as any)?.user?.id;
       if (!userId) return;
       const response = await fetch(`/api/plans/${planId}/collaborators?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' });
@@ -98,52 +97,36 @@ export default function Sidebar({
     }
   };
 
-  // Invite handled by dialog component now
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric'
+  });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  if (!session?.user) {
-    return null;
-  }
+  if (!session?.user) return null;
 
   return (
-    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
-      }`}>
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <h2 className="text-lg font-semibold text-gray-900">Saved Plans</h2>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleCollapse}
-            className="p-2"
-          >
+    <>
+      {isCollapsed && (
+        <div
+          onMouseEnter={onToggleCollapse}
+          className="fixed left-0 top-0 h-screen w-3 z-30 cursor-ew-resize group"
+          aria-hidden="true"
+        >
+          <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      )}
+      <div className={`border-r bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/40 transition-transform duration-400 ease-[cubic-bezier(.16,.84,.44,1)] flex flex-col z-40 w-[380px] ${isCollapsed ? '-translate-x-full pointer-events-none fixed inset-y-0 left-0' : 'translate-x-0 shadow-lg'} `}>
+        <div className="p-4 border-b border-gray-200 dark:border-neutral-800 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-neutral-100">Saved Plans</h2>
+          <Button variant="ghost" size="sm" onClick={onToggleCollapse} className="p-2">
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
         </div>
-
-        {!isCollapsed && (
-          <Button
-            onClick={onNewProject}
-            className="w-full mt-3 gap-2"
-            variant="outline"
-          >
-            <Plus className="w-4 h-4" />
-            New Project
+        <div className="p-4 border-b border-gray-200 dark:border-neutral-800">
+          <Button onClick={onNewProject} className="w-full gap-2" variant="outline">
+            <Plus className="w-4 h-4" /> New Project
           </Button>
-        )}
-      </div>
-
-      {!isCollapsed && (
-        <ScrollArea className="flex-1 h-[calc(100vh-120px)]">
+        </div>
+        <ScrollArea className="flex-1 h-[calc(100vh-160px)] pr-1">
           <div className="p-4 space-y-3">
             {loading ? (
               <div className="text-center text-gray-500 py-8">
@@ -154,15 +137,13 @@ export default function Sidebar({
               <div className="text-center text-gray-500 py-8">
                 <FileText className="w-8 h-8 mx-auto mb-2" />
                 <p className="text-sm">No saved plans yet</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Create your first project plan to get started
-                </p>
+                <p className="text-xs text-gray-400 mt-1">Create your first project plan to get started</p>
               </div>
             ) : (
               savedPlans.map((savedPlan) => (
                 <Card
                   key={savedPlan._id}
-                  className="cursor-pointer hover:shadow-md transition-shadow group"
+                  className="cursor-pointer hover:shadow-sm transition-all group border-neutral-200 dark:border-neutral-800"
                   onClick={() => onSelectPlan(savedPlan.plan, savedPlan._id)}
                 >
                   <CardHeader className="pb-2">
@@ -214,10 +195,7 @@ export default function Sidebar({
                             variant="ghost"
                             size="sm"
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deletePlan(savedPlan._id);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); deletePlan(savedPlan._id); }}
                           >
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </Button>
@@ -235,7 +213,7 @@ export default function Sidebar({
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-xs text-gray-600 line-clamp-2">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
                       {savedPlan.plan.overview.description}
                     </p>
                     <Separator className="my-2" />
@@ -274,7 +252,7 @@ export default function Sidebar({
             )}
           </div>
         </ScrollArea>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

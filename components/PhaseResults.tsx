@@ -23,7 +23,7 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
           : Object.values(items).map(v => String(v));
     return (
       <div className="space-y-3">
-        <h4 className="font-semibold flex items-center gap-2 text-gray-900">
+        <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">
           {icon}
           {title}
         </h4>
@@ -31,7 +31,7 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
           {safeItems.map((item, index) => (
             <div key={index} className="flex items-start gap-2">
               <div className={`w-2 h-2 rounded-full ${color} mt-2 flex-shrink-0`}></div>
-              <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
+              <p className="text-sm text-gray-700 dark:text-neutral-300 leading-relaxed">{item}</p>
             </div>
           ))}
         </div>
@@ -70,12 +70,12 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
     });
     return (
       <div className="space-y-3">
-        <h4 className="font-semibold flex items-center gap-2 text-gray-900">
+        <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">
           <Code className="w-4 h-4" />
           API Endpoints
         </h4>
         <div className="overflow-hidden rounded-lg border">
-          <div className="grid grid-cols-12 bg-gray-50 border-b px-3 py-2 text-xs font-medium text-gray-600">
+          <div className="grid grid-cols-12 bg-gray-50 dark:bg-neutral-800/60 border-b px-3 py-2 text-xs font-medium text-gray-600 dark:text-neutral-300">
             <div className="col-span-2">Method</div>
             <div className="col-span-4">Path</div>
             <div className="col-span-6">Description</div>
@@ -85,15 +85,15 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
               <li key={i} className="grid grid-cols-12 px-3 py-2 items-start gap-2 text-xs">
                 <div className="col-span-2">
                   {ep.method ? (
-                    <span className={`inline-block px-2 py-1 rounded border font-medium tracking-wide ${methodStyles[ep.method]}`}>{ep.method}</span>
-                  ) : <span className="text-gray-400">—</span>}
+                    <span className={`inline-block px-2 py-1 rounded border font-medium tracking-wide ${methodStyles[ep.method]} dark:brightness-90 dark:contrast-125`}>{ep.method}</span>
+                  ) : <span className="text-gray-400 dark:text-neutral-500">—</span>}
                 </div>
-                <div className="col-span-4 font-mono break-all text-blue-700">{ep.path}</div>
-                <div className="col-span-6 text-gray-700 leading-snug">{ep.desc || <span className="italic text-gray-400">No description</span>}</div>
+                <div className="col-span-4 font-mono break-all text-blue-700 dark:text-blue-400">{ep.path}</div>
+                <div className="col-span-6 text-gray-700 dark:text-neutral-300 leading-snug">{ep.desc || <span className="italic text-gray-400 dark:text-neutral-500">No description</span>}</div>
               </li>
             ))}
             {parsed.length === 0 && (
-              <li className="px-3 py-3 text-xs text-gray-500 italic">No API endpoints defined.</li>
+              <li className="px-3 py-3 text-xs text-gray-500 dark:text-neutral-500 italic">No API endpoints defined.</li>
             )}
           </ul>
         </div>
@@ -130,15 +130,15 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
 
     return (
       <div className="space-y-3">
-        <h4 className="font-semibold flex items-center gap-2 text-gray-900">
+        <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">
           <Database className="w-4 h-4" />
           Database Schema
         </h4>
         <div className="space-y-4">
           {entities.map((e, i) => (
-            <div key={i} className="border rounded-lg p-4 bg-white/50 hover:shadow-sm transition-shadow">
+            <div key={i} className="border rounded-lg p-4 bg-white/50 dark:bg-neutral-900/50 hover:shadow-sm transition-shadow border-gray-200 dark:border-neutral-800">
               <div className="flex items-center justify-between mb-2">
-                <h5 className="font-medium text-sm text-gray-800 flex items-center gap-2">
+                <h5 className="font-medium text-sm text-gray-800 dark:text-neutral-200 flex items-center gap-2">
                   <span className="inline-block px-2 py-0.5 text-[11px] rounded bg-blue-100 text-blue-700 border border-blue-200">TABLE</span>
                   {e.name}
                 </h5>
@@ -147,17 +147,17 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                 )}
               </div>
               {e.fields.length === 0 ? (
-                <p className="text-xs italic text-gray-400">No fields parsed</p>
+                <p className="text-xs italic text-gray-400 dark:text-neutral-500">No fields parsed</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {e.fields.map((f, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1 px-2 py-1 rounded border text-[11px] font-medium bg-gray-50 text-gray-700 border-gray-200"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border text-[11px] font-medium bg-gray-50 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 border-gray-200 dark:border-neutral-700"
                     >
                       <span className="font-mono">{f.name}</span>
                       {f.note && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">{f.note}</span>
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800">{f.note}</span>
                       )}
                     </span>
                   ))}
@@ -165,7 +165,7 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
               )}
             </div>
           ))}
-          {entities.length === 0 && <p className="text-xs italic text-gray-400">No schema defined.</p>}
+          {entities.length === 0 && <p className="text-xs italic text-gray-400 dark:text-neutral-500">No schema defined.</p>}
         </div>
       </div>
     );
@@ -174,8 +174,8 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Waterfall Methodology Results</h2>
-        <p className="text-gray-600">Comprehensive analysis across all three phases</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-neutral-100 mb-2">Waterfall Methodology Results</h2>
+        <p className="text-gray-600 dark:text-neutral-400">Comprehensive analysis across all three phases</p>
       </div>
 
       <Tabs defaultValue="planning" className="space-y-6">
@@ -230,11 +230,11 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                   </div>
                   <div className="space-y-6">
                     <div className="space-y-3">
-                      <h4 className="font-semibold flex items-center gap-2 text-gray-900">
+                      <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">
                         <Clock className="w-4 h-4" />
                         Timeline Estimate
                       </h4>
-                      <Badge variant="outline" className="text-sm px-3 py-1">
+                      <Badge variant="outline" className="text-sm px-3 py-1 dark:bg-neutral-800/60 dark:border-neutral-700 dark:text-neutral-200">
                         {planning.timeline}
                       </Badge>
                     </div>

@@ -154,9 +154,9 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                         type="button"
                         variant={formData.techStack?.includes(tech) ? "default" : "outline"}
                         size="sm"
-                        onClick={() => 
-                          formData.techStack?.includes(tech) 
-                            ? removeTechnology(tech) 
+                        onClick={() =>
+                          formData.techStack?.includes(tech)
+                            ? removeTechnology(tech)
                             : addTechnology(tech)
                         }
                         className="text-xs"
@@ -231,6 +231,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                   <SelectValue placeholder="Select budget" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="$0">$0</SelectItem>
                   <SelectItem value="Under $1K">Under $1K</SelectItem>
                   <SelectItem value="$1K - $5K">$1K - $5K</SelectItem>
                   <SelectItem value="$5K - $10K">$5K - $10K</SelectItem>
@@ -255,8 +256,8 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
       </Card>
 
       <div className="flex justify-center">
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={!isFormValid}
           className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-8 py-2"
         >
