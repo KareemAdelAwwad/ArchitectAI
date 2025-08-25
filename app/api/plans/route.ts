@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import clientPromise from '@/lib/mongodb';
+import clientPromise, { getDb } from '@/lib/mongodb';
 import { ProjectPlan } from '@/types/project';
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    const db = client.db('project-planner');
+    const client = await clientPromise; // retained for potential future operations
+    const db = await getDb();
     const plans = await db
       .collection('plans')
       .find({ userId: session.user.id })
@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     const { plan }: { plan: ProjectPlan } = body;
 
     const client = await clientPromise;
-    const db = client.db('project-planner');
-    
+    const db = await getDb();
+
     const planDocument = {
       userId: session.user.id,
       plan,
@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection('plans').insertOne(planDocument);
 
-    return NextResponse.json({ 
-      id: result.insertedId,
-      ...planDocument 
+    return NextResponse.json({
+      _id: result.insertedId,
+      ...planDocument
     });
   } catch (error) {
     console.error('Error saving plan:', error);

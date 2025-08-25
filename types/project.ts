@@ -17,6 +17,7 @@ export interface Task {
   estimatedHours: number;
   dependencies: string[];
   category: string;
+  completed?: boolean; // optional for backward compatibility; treat undefined as false
 }
 
 export interface TaskCollection {

@@ -7,10 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  FileText, 
-  Trash2, 
-  Calendar, 
+import {
+  FileText,
+  Trash2,
+  Calendar,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -26,17 +26,17 @@ interface SavedPlan {
 }
 
 interface SidebarProps {
-  onSelectPlan: (plan: ProjectPlan) => void;
+  onSelectPlan: (plan: ProjectPlan, id: string) => void;
   onNewProject: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
 
-export default function Sidebar({ 
-  onSelectPlan, 
-  onNewProject, 
-  isCollapsed, 
-  onToggleCollapse 
+export default function Sidebar({
+  onSelectPlan,
+  onNewProject,
+  isCollapsed,
+  onToggleCollapse
 }: SidebarProps) {
   const { data: session } = useSession();
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
@@ -46,6 +46,15 @@ export default function Sidebar({
     if (session?.user) {
       fetchSavedPlans();
     }
+  }, [session]);
+
+  // Listen for plan-saved events to refresh list after a new plan is created
+  useEffect(() => {
+    const handler = () => {
+      if (session?.user) fetchSavedPlans();
+    };
+    window.addEventListener('plan-saved', handler);
+    return () => window.removeEventListener('plan-saved', handler);
   }, [session]);
 
   const fetchSavedPlans = async () => {
@@ -67,7 +76,7 @@ export default function Sidebar({
       const response = await fetch(`/api/plans/${planId}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         setSavedPlans(plans => plans.filter(plan => plan._id !== planId));
       }
@@ -89,9 +98,8 @@ export default function Sidebar({
   }
 
   return (
-    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${
-      isCollapsed ? 'w-16' : 'w-80'
-    }`}>
+    <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'
+      }`}>
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           {!isCollapsed && (
@@ -106,7 +114,7 @@ export default function Sidebar({
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
         </div>
-        
+
         {!isCollapsed && (
           <Button
             onClick={onNewProject}
@@ -137,10 +145,10 @@ export default function Sidebar({
               </div>
             ) : (
               savedPlans.map((savedPlan) => (
-                <Card 
-                  key={savedPlan._id} 
+                <Card
+                  key={savedPlan._id}
                   className="cursor-pointer hover:shadow-md transition-shadow group"
-                  onClick={() => onSelectPlan(savedPlan.plan)}
+                  onClick={() => onSelectPlan(savedPlan.plan, savedPlan._id)}
                 >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">

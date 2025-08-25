@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import clientPromise from '@/lib/mongodb';
+import clientPromise, { getDb } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export async function GET(
@@ -10,14 +10,14 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const client = await clientPromise;
-    const db = client.db('project-planner');
-    
+    const db = await getDb();
+
     const plan = await db.collection('plans').findOne({
       _id: new ObjectId(params.id),
       userId: session.user.id,
@@ -40,14 +40,14 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const client = await clientPromise;
-    const db = client.db('project-planner');
-    
+    const db = await getDb();
+
     const result = await db.collection('plans').deleteOne({
       _id: new ObjectId(params.id),
       userId: session.user.id,

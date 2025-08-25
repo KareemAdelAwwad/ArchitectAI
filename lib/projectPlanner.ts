@@ -44,7 +44,8 @@ const suggestTechStack = (projectType: string, description: string): string[] =>
     suggestions.push('Cloudinary', 'AWS S3');
   }
 
-  return [...new Set(suggestions)];
+  // Convert to array explicitly (avoid relying on spread of Set for ES5 target)
+  return Array.from(new Set(suggestions));
 };
 
 const generatePlanningPhase = (input: ProjectInput): PlanningPhase => {
@@ -120,7 +121,7 @@ const generateAnalysisPhase = (input: ProjectInput): AnalysisPhase => {
   ];
 
   const description = input.description.toLowerCase();
-  
+
   // Add specific functional requirements based on project description
   if (description.includes('dashboard')) {
     functionalRequirements.push('Administrative dashboard with analytics and reporting');
@@ -209,7 +210,7 @@ const generateAnalysisPhase = (input: ProjectInput): AnalysisPhase => {
 
 const generateDesignPhase = (input: ProjectInput): DesignPhase => {
   const systemArchitecture = [];
-  
+
   if (input.projectType === 'Frontend') {
     systemArchitecture.push(
       'Single-page application (SPA) architecture with React',
@@ -239,7 +240,7 @@ const generateDesignPhase = (input: ProjectInput): DesignPhase => {
       'Users table: id, email, password_hash, profile_data, created_at, updated_at',
       'Sessions table: id, user_id, token, expires_at, created_at'
     );
-    
+
     if (input.description.toLowerCase().includes('post') || input.description.toLowerCase().includes('content')) {
       databaseSchema.push('Content table: id, user_id, title, body, status, created_at, updated_at');
     }
@@ -261,7 +262,7 @@ const generateDesignPhase = (input: ProjectInput): DesignPhase => {
       'GET /api/auth/profile - Get user profile',
       'PUT /api/auth/profile - Update user profile'
     );
-    
+
     if (input.description.toLowerCase().includes('crud') || input.description.toLowerCase().includes('manage')) {
       apiEndpoints.push(
         'GET /api/items - List items with pagination',
@@ -333,7 +334,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Simple',
         estimatedHours: 2,
         dependencies: [],
-        category: 'setup'
+        category: 'setup',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -342,7 +344,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Simple',
         estimatedHours: 3,
         dependencies: ['Set up Next.js project'],
-        category: 'styling'
+        category: 'styling',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -351,7 +354,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 8,
         dependencies: ['Configure Tailwind CSS'],
-        category: 'layout'
+        category: 'layout',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -360,7 +364,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 12,
         dependencies: ['Create responsive layout'],
-        category: 'auth'
+        category: 'auth',
+        completed: false
       }
     );
 
@@ -373,7 +378,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Complex',
         estimatedHours: 16,
         dependencies: ['Implement authentication UI'],
-        category: 'dashboard'
+        category: 'dashboard',
+        completed: false
       });
     }
 
@@ -385,7 +391,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 10,
         dependencies: ['Create responsive layout'],
-        category: 'forms'
+        category: 'forms',
+        completed: false
       });
     }
 
@@ -397,7 +404,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 8,
         dependencies: ['Create responsive layout'],
-        category: 'search'
+        category: 'search',
+        completed: false
       });
     }
   }
@@ -412,7 +420,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Simple',
         estimatedHours: 4,
         dependencies: [],
-        category: 'setup'
+        category: 'setup',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -421,7 +430,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 6,
         dependencies: ['Set up Node.js API server'],
-        category: 'database'
+        category: 'database',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -430,7 +440,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Complex',
         estimatedHours: 12,
         dependencies: ['Configure database connection'],
-        category: 'auth'
+        category: 'auth',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -439,7 +450,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 10,
         dependencies: ['Implement authentication system'],
-        category: 'api'
+        category: 'api',
+        completed: false
       }
     );
 
@@ -452,7 +464,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Complex',
         estimatedHours: 14,
         dependencies: ['Build CRUD API endpoints'],
-        category: 'payment'
+        category: 'payment',
+        completed: false
       });
     }
 
@@ -464,7 +477,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 6,
         dependencies: ['Implement authentication system'],
-        category: 'notifications'
+        category: 'notifications',
+        completed: false
       });
     }
 
@@ -476,7 +490,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 8,
         dependencies: ['Build CRUD API endpoints'],
-        category: 'files'
+        category: 'files',
+        completed: false
       });
     }
   }
@@ -490,7 +505,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 6,
       dependencies: [],
-      category: 'testing'
+      category: 'testing',
+      completed: false
     },
     {
       id: generateUniqueId(),
@@ -499,7 +515,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 8,
       dependencies: [],
-      category: 'monitoring'
+      category: 'monitoring',
+      completed: false
     }
   );
 
@@ -512,7 +529,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Medium',
         estimatedHours: 10,
         dependencies: ['Build CRUD API endpoints', 'Implement authentication UI'],
-        category: 'integration'
+        category: 'integration',
+        completed: false
       },
       {
         id: generateUniqueId(),
@@ -521,7 +539,8 @@ const generateTasks = (input: ProjectInput): {
         complexity: 'Complex',
         estimatedHours: 12,
         dependencies: ['Connect frontend to backend APIs'],
-        category: 'e2e-testing'
+        category: 'e2e-testing',
+        completed: false
       }
     );
   }
@@ -535,7 +554,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 6,
       dependencies: [],
-      category: 'cicd'
+      category: 'cicd',
+      completed: false
     },
     {
       id: generateUniqueId(),
@@ -544,7 +564,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 4,
       dependencies: ['Set up CI/CD pipeline'],
-      category: 'hosting'
+      category: 'hosting',
+      completed: false
     },
     {
       id: generateUniqueId(),
@@ -553,7 +574,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Simple',
       estimatedHours: 4,
       dependencies: ['Configure production environment'],
-      category: 'monitoring'
+      category: 'monitoring',
+      completed: false
     },
     {
       id: generateUniqueId(),
@@ -562,7 +584,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 8,
       dependencies: ['Configure production environment'],
-      category: 'security'
+      category: 'security',
+      completed: false
     }
   );
 
@@ -574,7 +597,8 @@ const generateTasks = (input: ProjectInput): {
       complexity: 'Medium',
       estimatedHours: 6,
       dependencies: ['Configure production environment'],
-      category: 'database-ops'
+      category: 'database-ops',
+      completed: false
     });
   }
 
@@ -584,8 +608,8 @@ const generateTasks = (input: ProjectInput): {
 export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
   // Merge user's tech stack with suggestions
   const suggestedTech = suggestTechStack(input.projectType, input.description);
-  const finalTechStack = input.techStack.length > 0 
-    ? [...new Set([...input.techStack, ...suggestedTech])]
+  const finalTechStack = input.techStack.length > 0
+    ? Array.from(new Set([...input.techStack, ...suggestedTech]))
     : suggestedTech;
 
   const overview = {

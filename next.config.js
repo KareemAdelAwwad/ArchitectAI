@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  // Removed `output: 'export'` because static export is incompatible with NextAuth (needs dynamic server functions)
   eslint: {
     ignoreDuringBuilds: true,
   },

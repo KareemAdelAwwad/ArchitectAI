@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { TaskCollection, Task } from '@/types/project';
 
 interface TaskListProps {
   tasks: TaskCollection;
+  onToggleTask?: (taskId: string, completed: boolean) => void;
 }
 
 const getComplexityColor = (complexity: string) => {
@@ -43,8 +44,20 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export default function TaskList({ tasks }: TaskListProps) {
+export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
+  // Track completed tasks per mounted TaskList instance
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+
+  // Rebuild completion Set whenever the tasks prop changes (new project selected)
+  useEffect(() => {
+    const all = [
+      ...tasks.frontend,
+      ...tasks.backend,
+      ...tasks.integration,
+      ...tasks.deployment,
+    ];
+    setCompletedTasks(new Set(all.filter(t => t.completed).map(t => t.id)));
+  }, [tasks]);
   const [filterComplexity, setFilterComplexity] = useState<string>('all');
 
   const allTasks = [
@@ -55,17 +68,15 @@ export default function TaskList({ tasks }: TaskListProps) {
   ];
 
   const toggleTaskCompletion = (taskId: string) => {
+    const isCompleted = completedTasks.has(taskId);
     const newCompleted = new Set(completedTasks);
-    if (newCompleted.has(taskId)) {
-      newCompleted.delete(taskId);
-    } else {
-      newCompleted.add(taskId);
-    }
+    if (isCompleted) newCompleted.delete(taskId); else newCompleted.add(taskId);
     setCompletedTasks(newCompleted);
+    onToggleTask?.(taskId, !isCompleted);
   };
 
-  const filteredTasks = filterComplexity === 'all' 
-    ? allTasks 
+  const filteredTasks = filterComplexity === 'all'
+    ? allTasks
     : allTasks.filter(task => task.complexity === filterComplexity);
 
   const completionRate = (completedTasks.size / allTasks.length) * 100;
@@ -96,11 +107,10 @@ export default function TaskList({ tasks }: TaskListProps) {
             {categoryTasks.map((task) => (
               <div
                 key={task.id}
-                className={`p-4 border rounded-lg transition-all ${
-                  completedTasks.has(task.id) 
-                    ? 'bg-green-50 border-green-200 opacity-75' 
+                className={`p-4 border rounded-lg transition-all ${completedTasks.has(task.id)
+                    ? 'bg-green-50 border-green-200 opacity-75'
                     : 'bg-white hover:shadow-md'
-                }`}
+                  }`}
               >
                 <div className="flex items-start gap-3">
                   <Checkbox
@@ -110,9 +120,8 @@ export default function TaskList({ tasks }: TaskListProps) {
                   />
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
-                      <h4 className={`font-semibold ${
-                        completedTasks.has(task.id) ? 'line-through text-gray-500' : ''
-                      }`}>
+                      <h4 className={`font-semibold ${completedTasks.has(task.id) ? 'line-through text-gray-500' : ''
+                        }`}>
                         {task.title}
                       </h4>
                       <div className="flex items-center gap-2 ml-4">
@@ -125,9 +134,8 @@ export default function TaskList({ tasks }: TaskListProps) {
                         </Badge>
                       </div>
                     </div>
-                    <p className={`text-sm text-gray-600 mb-2 ${
-                      completedTasks.has(task.id) ? 'line-through' : ''
-                    }`}>
+                    <p className={`text-sm text-gray-600 mb-2 ${completedTasks.has(task.id) ? 'line-through' : ''
+                      }`}>
                       {task.description}
                     </p>
                     {task.dependencies.length > 0 && (
