@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-import { getDb } from '@/lib/mongodb';
+import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
+import { updateTaskCompletion } from '@/src/application/usecases/updateTaskCompletion';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -16,28 +17,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const db = await getDb();
-    const doc = await db.collection('plans').findOne({ _id: new ObjectId(params.id), userId: session.user.id });
-    if (!doc) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
-
-    let updated = false;
-    const categories = ['frontend', 'backend', 'integration', 'deployment'] as const;
-    for (const cat of categories) {
-      const arr = doc.plan?.tasks?.[cat];
-      if (Array.isArray(arr)) {
-        const idx = arr.findIndex((t: any) => t.id === taskId);
-        if (idx !== -1) {
-          arr[idx].completed = completed;
-          updated = true;
-          break;
-        }
-      }
-    }
-
-    if (!updated) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
-
-    await db.collection('plans').updateOne({ _id: new ObjectId(params.id), userId: session.user.id }, { $set: { 'plan.tasks': doc.plan.tasks, updatedAt: new Date() } });
-
+    const repo = new MongoPlanRepository();
+    const ok = await updateTaskCompletion(repo, session.user.id, params.id, taskId, completed);
+    if (!ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating task status:', error);
