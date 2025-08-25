@@ -75,12 +75,25 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
     onToggleTask?.(taskId, !isCompleted);
   };
 
-  const filteredTasks = filterComplexity === 'all'
-    ? allTasks
-    : allTasks.filter(task => task.complexity === filterComplexity);
+  // Helper to filter a category by selected complexity
+  const getFilteredCategory = (list: Task[]) =>
+    filterComplexity === 'all' ? list : list.filter(t => t.complexity === filterComplexity);
 
-  const completionRate = (completedTasks.size / allTasks.length) * 100;
-  const totalEstimatedHours = allTasks.reduce((sum, task) => sum + task.estimatedHours, 0);
+  const filteredFrontend = getFilteredCategory(tasks.frontend);
+  const filteredBackend = getFilteredCategory(tasks.backend);
+  const filteredIntegration = getFilteredCategory(tasks.integration);
+  const filteredDeployment = getFilteredCategory(tasks.deployment);
+
+  const visibleAllTasks = [
+    ...filteredFrontend.map(task => ({ ...task, category: 'frontend' })),
+    ...filteredBackend.map(task => ({ ...task, category: 'backend' })),
+    ...filteredIntegration.map(task => ({ ...task, category: 'integration' })),
+    ...filteredDeployment.map(task => ({ ...task, category: 'deployment' })),
+  ];
+
+  const completedVisibleTasks = visibleAllTasks.filter(t => completedTasks.has(t.id)).length;
+  const completionRate = visibleAllTasks.length > 0 ? (completedVisibleTasks / visibleAllTasks.length) * 100 : 0;
+  const totalEstimatedHours = visibleAllTasks.reduce((sum, task) => sum + task.estimatedHours, 0);
 
   const renderTaskCategory = (categoryTasks: Task[], categoryName: string, icon: React.ReactNode) => {
     const categoryCompletedTasks = categoryTasks.filter(task => completedTasks.has(task.id)).length;
@@ -103,51 +116,55 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {categoryTasks.map((task) => (
-              <div
-                key={task.id}
-                className={`p-4 border rounded-lg transition-all ${completedTasks.has(task.id)
-                  ? 'bg-green-50 border-green-200 opacity-75'
-                  : 'bg-white hover:shadow-md'
-                  }`}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={completedTasks.has(task.id)}
-                    onCheckedChange={() => toggleTaskCompletion(task.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className={`font-semibold ${completedTasks.has(task.id) ? 'line-through text-gray-500' : ''
+          {categoryTasks.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">No tasks match this complexity.</p>
+          ) : (
+            <div className="space-y-4">
+              {categoryTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className={`p-4 border rounded-lg transition-all ${completedTasks.has(task.id)
+                    ? 'bg-green-50 border-green-200 opacity-75'
+                    : 'bg-white hover:shadow-md'
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={completedTasks.has(task.id)}
+                      onCheckedChange={() => toggleTaskCompletion(task.id)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className={`font-semibold ${completedTasks.has(task.id) ? 'line-through text-gray-500' : ''
+                          }`}>
+                          {task.title}
+                        </h4>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Badge className={getComplexityColor(task.complexity)}>
+                            {task.complexity}
+                          </Badge>
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {task.estimatedHours}h
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className={`text-sm text-gray-600 mb-2 ${completedTasks.has(task.id) ? 'line-through' : ''
                         }`}>
-                        {task.title}
-                      </h4>
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge className={getComplexityColor(task.complexity)}>
-                          {task.complexity}
-                        </Badge>
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {task.estimatedHours}h
-                        </Badge>
-                      </div>
+                        {task.description}
+                      </p>
+                      {task.dependencies.length > 0 && (
+                        <div className="text-xs text-gray-500">
+                          <span className="font-medium">Dependencies:</span> {task.dependencies.join(', ')}
+                        </div>
+                      )}
                     </div>
-                    <p className={`text-sm text-gray-600 mb-2 ${completedTasks.has(task.id) ? 'line-through' : ''
-                      }`}>
-                      {task.description}
-                    </p>
-                    {task.dependencies.length > 0 && (
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">Dependencies:</span> {task.dependencies.join(', ')}
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -166,20 +183,20 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
         <CardContent>
           <div className="grid md:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{allTasks.length}</div>
-              <div className="text-sm text-gray-600">Total Tasks</div>
+              <div className="text-2xl font-bold text-blue-600">{visibleAllTasks.length}</div>
+              <div className="text-sm text-gray-600">Visible Tasks</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{completedTasks.size}</div>
-              <div className="text-sm text-gray-600">Completed</div>
+              <div className="text-2xl font-bold text-green-600">{completedVisibleTasks}</div>
+              <div className="text-sm text-gray-600">Completed (Visible)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">{totalEstimatedHours}</div>
-              <div className="text-sm text-gray-600">Total Hours</div>
+              <div className="text-sm text-gray-600">Hours (Visible)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{Math.round(completionRate)}%</div>
-              <div className="text-sm text-gray-600">Complete</div>
+              <div className="text-sm text-gray-600">Complete (Visible)</div>
             </div>
           </div>
           <Progress value={completionRate} className="w-full" />
@@ -213,27 +230,27 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
 
         <TabsContent value="all">
           <div className="grid gap-6">
-            {renderTaskCategory(tasks.frontend, 'Frontend Tasks', getCategoryIcon('frontend'))}
-            {renderTaskCategory(tasks.backend, 'Backend Tasks', getCategoryIcon('backend'))}
-            {renderTaskCategory(tasks.integration, 'Integration & Testing Tasks', getCategoryIcon('integration'))}
-            {renderTaskCategory(tasks.deployment, 'Deployment & DevOps Tasks', getCategoryIcon('deployment'))}
+            {renderTaskCategory(filteredFrontend, 'Frontend Tasks', getCategoryIcon('frontend'))}
+            {renderTaskCategory(filteredBackend, 'Backend Tasks', getCategoryIcon('backend'))}
+            {renderTaskCategory(filteredIntegration, 'Integration & Testing Tasks', getCategoryIcon('integration'))}
+            {renderTaskCategory(filteredDeployment, 'Deployment & DevOps Tasks', getCategoryIcon('deployment'))}
           </div>
         </TabsContent>
 
         <TabsContent value="frontend">
-          {renderTaskCategory(tasks.frontend, 'Frontend Tasks', getCategoryIcon('frontend'))}
+          {renderTaskCategory(filteredFrontend, 'Frontend Tasks', getCategoryIcon('frontend'))}
         </TabsContent>
 
         <TabsContent value="backend">
-          {renderTaskCategory(tasks.backend, 'Backend Tasks', getCategoryIcon('backend'))}
+          {renderTaskCategory(filteredBackend, 'Backend Tasks', getCategoryIcon('backend'))}
         </TabsContent>
 
         <TabsContent value="integration">
-          {renderTaskCategory(tasks.integration, 'Integration & Testing Tasks', getCategoryIcon('integration'))}
+          {renderTaskCategory(filteredIntegration, 'Integration & Testing Tasks', getCategoryIcon('integration'))}
         </TabsContent>
 
         <TabsContent value="deployment">
-          {renderTaskCategory(tasks.deployment, 'Deployment & DevOps Tasks', getCategoryIcon('deployment'))}
+          {renderTaskCategory(filteredDeployment, 'Deployment & DevOps Tasks', getCategoryIcon('deployment'))}
         </TabsContent>
       </Tabs>
     </div>
