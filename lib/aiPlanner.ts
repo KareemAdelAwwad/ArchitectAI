@@ -35,9 +35,9 @@ OUTPUT RULES (CRITICAL):
    - analysis.userStories: standard story format OR persona format
    - analysis.constraints: environmental/organizational/technical constraints
    - analysis.integrations: system/component + purpose
-   - design.systemArchitecture: layers/components interactions
-   - design.databaseSchema: entities + key fields (no full SQL)
-   - design.apiEndpoints: method + path + purpose
+  - design.systemArchitecture: layers/components interactions
+  - design.databaseSchema: ONE STRING PER ENTITY using pattern "<EntityName> table: field1, field2 (Note), field3". Notes in parentheses become field badges (keep concise like JSONB, enum, FK). No SQL DDL, just entity and comma-separated fields with optional (Note). Example: "Users table: id, tenantId (FK), email, role (enum), createdAt".
+  - design.apiEndpoints: ONE STRING PER ENDPOINT using pattern "METHOD /path - short description" (METHOD uppercase: GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD). Example: "GET /courses/:id - fetch course detail". Description after hyphen < 80 chars, action oriented.
    - design.uiDesign: key screen or flow statements
    - design.codingStandards: conventions/tooling (linting, patterns, security)
 11. No empty strings. Use [] if legitimately empty (avoid null/undefined).
