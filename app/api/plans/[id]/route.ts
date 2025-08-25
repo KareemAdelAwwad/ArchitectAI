@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import clientPromise, { getDb } from '@/lib/mongodb';
+import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { ObjectId } from 'mongodb';
 
 export async function GET(
@@ -15,19 +15,19 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    const db = await getDb();
-
-    const plan = await db.collection('plans').findOne({
-      _id: new ObjectId(params.id),
-      userId: session.user.id,
-    });
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
+    const repo = new MongoPlanRepository();
+    const plan = await repo.get(session.user.id, params.id);
 
     if (!plan) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 
-    return NextResponse.json(plan);
+    const isOwner = plan.userId === session.user.id;
+    const collaboratorEntry = (plan.collaborators || []).find(c => c.userId === session.user.id);
+    return NextResponse.json({ ...plan, isOwner, collaboratorRole: collaboratorEntry?.role });
   } catch (error) {
     console.error('Error fetching plan:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -45,15 +45,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const client = await clientPromise;
-    const db = await getDb();
-
-    const result = await db.collection('plans').deleteOne({
-      _id: new ObjectId(params.id),
-      userId: session.user.id,
-    });
-
-    if (result.deletedCount === 0) {
+    if (!ObjectId.isValid(params.id)) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    }
+    const repo = new MongoPlanRepository();
+    // Only owner can delete
+    const stored = await repo.get(session.user.id, params.id);
+    if (!stored || stored.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const deleted = await repo.delete(session.user.id, params.id);
+    if (!deleted) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 

@@ -7,15 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  FileText,
-  Trash2,
-  Calendar,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Plus
-} from 'lucide-react';
+import { FileText, Trash2, Calendar, Clock, ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
+import InviteCollaboratorsDialog from '@/components/InviteCollaboratorsDialog';
 import { ProjectPlan } from '@/types/project';
 
 interface SavedPlan {
@@ -23,6 +16,12 @@ interface SavedPlan {
   plan: ProjectPlan;
   createdAt: string;
   updatedAt: string;
+  isOwner?: boolean;
+  collaboratorRole?: 'viewer' | 'editor';
+  collaborators?: Array<{ userId: string; role: 'viewer' | 'editor' }>;
+  collaboratorCount?: number;
+  collaboratorsDetailed?: Array<{ userId: string; role: 'viewer' | 'editor'; email?: string | null; image?: string | null; name?: string | null }>;
+  ownerProfile?: { email?: string; image?: string; name?: string } | null;
 }
 
 interface SidebarProps {
@@ -84,6 +83,22 @@ export default function Sidebar({
       console.error('Error deleting plan:', error);
     }
   };
+
+  const leavePlan = async (planId: string) => {
+    try {
+      // current user id from session
+      const userId = (session as any)?.user?.id;
+      if (!userId) return;
+      const response = await fetch(`/api/plans/${planId}/collaborators?userId=${encodeURIComponent(userId)}`, { method: 'DELETE' });
+      if (response.ok) {
+        setSavedPlans(plans => plans.filter(plan => plan._id !== planId));
+      }
+    } catch (e) {
+      console.error('Error leaving plan', e);
+    }
+  };
+
+  // Invite handled by dialog component now
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -153,8 +168,13 @@ export default function Sidebar({
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-sm font-medium truncate">
-                          {savedPlan.plan.overview.title}
+                        <CardTitle className="text-sm font-medium truncate flex items-center gap-2">
+                          <span className="truncate">{savedPlan.plan.overview.title}</span>
+                          {typeof savedPlan.collaboratorCount === 'number' && savedPlan.collaboratorCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px] font-normal px-1 py-0">
+                              {savedPlan.collaboratorCount}
+                            </Badge>
+                          )}
                         </CardTitle>
                         <CardDescription className="text-xs mt-1">
                           <div className="flex items-center gap-1 mb-1">
@@ -164,19 +184,54 @@ export default function Sidebar({
                           <Badge variant="outline" className="text-xs">
                             {savedPlan.plan.overview.projectType}
                           </Badge>
+                          {savedPlan.isOwner ? (
+                            <Badge variant="secondary" className="text-xs ml-1">Owner</Badge>
+                          ) : savedPlan.collaboratorRole ? (
+                            <Badge variant="secondary" className="text-xs ml-1">{savedPlan.collaboratorRole}</Badge>
+                          ) : null}
                         </CardDescription>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deletePlan(savedPlan._id);
-                        }}
-                      >
-                        <Trash2 className="w-3 h-3 text-red-500" />
-                      </Button>
+                      {savedPlan.isOwner ? (
+                        <div className="flex gap-1">
+                          <InviteCollaboratorsDialog
+                            planId={savedPlan._id}
+                            ownerId={savedPlan.isOwner ? (session as any)?.user?.id : ''}
+                            isOwner={!!savedPlan.isOwner}
+                            onChanged={fetchSavedPlans}
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                                title="Manage collaborators"
+                                onClick={(e) => { e.stopPropagation(); }}
+                              >
+                                <Users className="w-3 h-3" />
+                              </Button>
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deletePlan(savedPlan._id);
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3 text-red-500" />
+                          </Button>
+                        </div>
+                      ) : savedPlan.collaboratorRole ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                          onClick={(e) => { e.stopPropagation(); leavePlan(savedPlan._id); }}
+                        >
+                          Leave
+                        </Button>
+                      ) : null}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -184,7 +239,7 @@ export default function Sidebar({
                       {savedPlan.plan.overview.description}
                     </p>
                     <Separator className="my-2" />
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1 items-center">
                       {savedPlan.plan.overview.techStack.slice(0, 3).map((tech, index) => (
                         <Badge key={index} variant="secondary" className="text-xs px-1 py-0">
                           {tech}
@@ -194,6 +249,23 @@ export default function Sidebar({
                         <Badge variant="secondary" className="text-xs px-1 py-0">
                           +{savedPlan.plan.overview.techStack.length - 3}
                         </Badge>
+                      )}
+                      {savedPlan.collaboratorCount && savedPlan.collaboratorCount > 0 && (
+                        <div className="flex -space-x-2 ml-1">
+                          {savedPlan.collaboratorsDetailed?.slice(0, 3).map(c => {
+                            const seed = (c.email || c.userId || '').split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+                            const hue = seed % 360;
+                            const letter = (c.name || c.email || ' ').trim()[0]?.toUpperCase() || 'U';
+                            return (
+                              <div key={c.userId} className="w-5 h-5 rounded-full border border-white bg-cover bg-center text-[9px] flex items-center justify-center shadow" style={c.image ? { backgroundImage: `url(${c.image})` } : { backgroundColor: `hsl(${hue}deg 70% 60%)` }}>
+                                {!c.image && letter}
+                              </div>
+                            );
+                          })}
+                          {savedPlan.collaboratorCount > 3 && (
+                            <div className="w-5 h-5 rounded-full bg-gray-200 border border-white text-[9px] flex items-center justify-center">+{savedPlan.collaboratorCount - 3}</div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </CardContent>

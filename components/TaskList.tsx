@@ -14,6 +14,7 @@ import { TaskCollection, Task } from '@/types/project';
 interface TaskListProps {
   tasks: TaskCollection;
   onToggleTask?: (taskId: string, completed: boolean) => void;
+  readOnly?: boolean;
 }
 
 const getComplexityColor = (complexity: string) => {
@@ -44,7 +45,7 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
+export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProps) {
   // Track completed tasks per mounted TaskList instance
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 
@@ -68,6 +69,7 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
   ];
 
   const toggleTaskCompletion = (taskId: string) => {
+    if (readOnly) return;
     const isCompleted = completedTasks.has(taskId);
     const newCompleted = new Set(completedTasks);
     if (isCompleted) newCompleted.delete(taskId); else newCompleted.add(taskId);
@@ -132,7 +134,8 @@ export default function TaskList({ tasks, onToggleTask }: TaskListProps) {
                     <Checkbox
                       checked={completedTasks.has(task.id)}
                       onCheckedChange={() => toggleTaskCompletion(task.id)}
-                      className="mt-1"
+                      className={`mt-1 ${readOnly ? 'pointer-events-none opacity-60' : ''}`}
+                      disabled={readOnly}
                     />
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">

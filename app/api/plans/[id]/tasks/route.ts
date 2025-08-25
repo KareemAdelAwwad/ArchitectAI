@@ -18,6 +18,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const repo = new MongoPlanRepository();
+    const plan = await repo.get(session.user.id, params.id);
+    if (!plan) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    const isOwner = plan.userId === session.user.id;
+    const collaboratorEntry = (plan.collaborators || []).find(c => c.userId === session.user.id);
+    if (!isOwner && collaboratorEntry?.role !== 'editor') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
     const ok = await updateTaskCompletion(repo, session.user.id, params.id, taskId, completed);
     if (!ok) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     return NextResponse.json({ success: true });

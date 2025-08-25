@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getDb } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
+import { persistRefinedSection } from '@/src/application/usecases/refineSection';
 import { refinePlanSectionWithGemini } from '@/lib/aiPlanner';
 import { ProjectPlan } from '@/types/project';
 
@@ -25,11 +25,16 @@ export async function POST(req: NextRequest) {
     if (!section) return NextResponse.json({ error: 'Missing section' }, { status: 400 });
 
     let plan: ProjectPlan | null = null;
+    const repo = new MongoPlanRepository();
     if (planId) {
-      const db = await getDb();
-      const doc = await db.collection('plans').findOne({ _id: new ObjectId(planId), userId: session.user.id });
-      if (!doc) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
-      plan = doc.plan as ProjectPlan;
+      const stored = await repo.get(session.user.id, planId);
+      if (!stored) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+      const isOwner = stored.userId === session.user.id;
+      const collaboratorEntry = (stored.collaborators || []).find(c => c.userId === session.user.id);
+      if (!isOwner && collaboratorEntry?.role !== 'editor') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      plan = stored.plan as ProjectPlan;
     } else if (fullPlan) {
       plan = fullPlan;
     } else {
@@ -39,24 +44,7 @@ export async function POST(req: NextRequest) {
     const refinedValue = await refinePlanSectionWithGemini(plan, section, instruction);
 
     // If planId provided, persist change
-    if (planId) {
-      const db = await getDb();
-      // Apply updated section into plan object
-      const pathSegments = section.split('.');
-      let cursor: any = plan;
-      for (let i = 0; i < pathSegments.length - 1; i++) {
-        cursor = cursor[pathSegments[i]];
-        if (cursor == null) break;
-      }
-      const lastKey = pathSegments[pathSegments.length - 1];
-      if (cursor) {
-        cursor[lastKey] = refinedValue;
-      }
-      await db.collection('plans').updateOne(
-        { _id: new ObjectId(planId), userId: session.user.id },
-        { $set: { plan, updatedAt: new Date() } }
-      );
-    }
+    if (planId) await persistRefinedSection(repo, session.user.id, planId, section, refinedValue);
 
     return NextResponse.json({ section, value: refinedValue });
   } catch (e: any) {

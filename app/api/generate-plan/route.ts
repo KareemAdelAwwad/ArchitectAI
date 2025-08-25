@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { generatePlanWithGemini } from '@/lib/aiPlanner';
 import { ProjectInput } from '@/types/project';
+import { ProjectInputSchema } from '@/src/domain/schemas/projectInput';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,10 +16,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    const input: ProjectInput = body.input;
-    if (!input?.title || !input?.description || !input?.projectType) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const parsed = ProjectInputSchema.safeParse(body.input);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', issues: parsed.error.issues }, { status: 400 });
     }
+    const input: ProjectInput = parsed.data;
     const plan = await generatePlanWithGemini(input);
     return NextResponse.json(plan);
   } catch (e: any) {
