@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
+import { ShinyButton } from '@/components/ui/shiny-button';
+import { Hero, FeatureGrid, CTA } from '@/components/landing/Hero';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +39,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(initialPlanId ?? null);
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [collaboratorRole, setCollaboratorRole] = useState<'viewer' | 'editor' | null>(initialCollaboratorRole);
+  const [collaborators, setCollaborators] = useState<Array<{ userId: string; role: 'viewer' | 'editor'; name?: string | null; image?: string | null }>>([]);
 
   useEffect(() => {
     if (initialPlanId) {
@@ -297,6 +300,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
         const data = await r.json();
         setIsOwner(!!data.isOwner);
         setCollaboratorRole(data.collaboratorRole || null);
+  if (Array.isArray(data.collaborators)) setCollaborators(data.collaborators);
       }
     }).catch(() => { });
   };
@@ -349,18 +353,15 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
 
   if (!session) {
     return (
-      <div className="min-h-screen" data-page>
+      <div className="min-h-screen flex flex-col" data-page>
         <TopNav />
-        <div className="mx-auto max-w-6xl px-4 py-12">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-6 bg-gradient-to-tr from-blue-600 to-purple-600 shadow-lg ring-1 ring-black/5">
-              <Target className="w-8 h-8 text-white drop-shadow" />
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white mb-4">ArchitectAI Project Planning</h1>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">Turn raw ideas into structured, actionable engineering execution plans. Save, refine, collaborate.</p>
-            <div className="flex justify-center"><AuthButton /></div>
-          </div>
-        </div>
+        {/* Marketing / public landing experience */}
+        <main className="flex-1">
+          <Hero />
+          <FeatureGrid />
+          <CTA />
+        </main>
+        <footer className="border-t py-8 text-center text-xs text-neutral-500">© {new Date().getFullYear()} ArchitectAI. Built for pragmatic engineering teams.</footer>
       </div>
     );
   }
@@ -612,7 +613,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                 </TabsList>
 
                 <TabsContent value="tasks">
-                  <TaskList key={currentPlanId || projectPlan.overview.title} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
+                  <TaskList key={(currentPlanId || projectPlan.overview.title)+':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
                 </TabsContent>
 
                 <TabsContent value="phases">

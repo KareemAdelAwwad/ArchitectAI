@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, CheckCircle2, Circle, Smartphone, Server, Zap, Cloud } from "lucide-react";
+import { Clock, CheckCircle2, Circle, Smartphone, Server, Zap, Cloud, Trash2, Pencil } from "lucide-react";
 import { TaskCollection, Task } from "@/types/project";
 
 interface TaskListProps {
@@ -47,6 +47,10 @@ const getCategoryIcon = (category: string) => {
 export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [filterComplexity, setFilterComplexity] = useState<string>("all");
+  const [deletedTasks, setDeletedTasks] = useState<Set<string>>(new Set());
+  const [editedTasks, setEditedTasks] = useState<Map<string, Partial<Task>>>(new Map());
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ title: string; description: string; estimatedHours: number; complexity: Task['complexity'] } | null>(null);
 
   // Sync completed tasks when tasks prop changes
   useEffect(() => {
@@ -69,8 +73,18 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
     });
   };
 
-  const filterCategory = (list: Task[]) =>
-    filterComplexity === "all" ? list : list.filter((t) => t.complexity === filterComplexity);
+  const mergeTask = (t: Task): Task => {
+    const overrides = editedTasks.get(t.id);
+    return overrides ? { ...t, ...overrides } : t;
+  };
+
+  const filterCategory = (list: Task[]) => {
+    const base = list
+      .filter(t => !deletedTasks.has(t.id))
+      .map(mergeTask)
+      .filter((t) => filterComplexity === "all" || t.complexity === filterComplexity);
+    return base;
+  };
 
   const filteredFrontend = filterCategory(tasks.frontend);
   const filteredBackend = filterCategory(tasks.backend);
@@ -131,9 +145,10 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
                 })
                 .map((task) => {
                   const doneTask = completedTasks.has(task.id);
+                  const applied = mergeTask(task);
                   return (
                     <div
-                      key={task.id}
+                    key={task.id}
                       className={`group rounded-lg border p-4 transition-colors shadow-sm/5 hover:shadow-sm focus-within:ring-2 focus-within:ring-primary/30 outline-none ${doneTask
                         ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                         : "bg-white/80 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800"
@@ -153,26 +168,55 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
                               className={`font-semibold leading-snug tracking-tight ${doneTask ? "line-through text-muted-foreground" : ""
                                 }`}
                             >
-                              {task.title}
+                            {applied.title}
                             </h4>
-                            <div className="flex items-center gap-2">
-                              <Badge className={getComplexityColor(task.complexity)}>
-                                {task.complexity}
-                              </Badge>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge className={getComplexityColor(applied.complexity)}>
+                              {applied.complexity}
+                            </Badge>
                               <Badge
                                 variant="outline"
                                 className="flex items-center gap-1 text-xs"
                               >
                                 <Clock className="h-3 w-3" />
-                                {task.estimatedHours}h
+                              {applied.estimatedHours}h
                               </Badge>
+                            {!readOnly && (
+                              <div className="flex items-center gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm('Delete this task locally? (Not persisted)')) {
+                                      setDeletedTasks(prev => new Set(prev).add(task.id));
+                                    }
+                                  }}
+                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                                  aria-label="Delete task"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTaskId(task.id);
+                                    setEditDraft({ title: applied.title, description: applied.description, estimatedHours: applied.estimatedHours, complexity: applied.complexity });
+                                  }}
+                                  className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600"
+                                  aria-label="Edit task"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
                             </div>
                           </div>
                           <p
                             className={`mb-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 ${doneTask ? "line-through opacity-70" : ""
                               }`}
                           >
-                            {task.description}
+                          {applied.description}
                           </p>
                           {task.dependencies.length > 0 && (
                             <div className="text-xs text-neutral-500 dark:text-neutral-500">
@@ -192,8 +236,16 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
     );
   };
 
+  // Editing modal (simple inline overlay)
+  const saveEdit = () => {
+    if (!editingTaskId || !editDraft) return;
+    setEditedTasks(prev => { const m = new Map(prev); m.set(editingTaskId, { ...editDraft }); return m; });
+    setEditingTaskId(null); setEditDraft(null);
+  };
+  const cancelEdit = () => { setEditingTaskId(null); setEditDraft(null); };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Progress Overview */}
       <Card className="border-neutral-200/60 dark:border-neutral-800/60 bg-white/70 dark:bg-neutral-900/40 backdrop-blur-sm">
         <CardHeader>
@@ -299,6 +351,42 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
           )}
         </TabsContent>
       </Tabs>
+      {editingTaskId && editDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Edit Task</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium">Title</label>
+                <input value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Description</label>
+                <textarea value={editDraft.description} onChange={e => setEditDraft(d => d && { ...d, description: e.target.value })} rows={4} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium">Hours</label>
+                  <input type="number" min={0} value={editDraft.estimatedHours} onChange={e => setEditDraft(d => d && { ...d, estimatedHours: Number(e.target.value) })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Complexity</label>
+                  <select value={editDraft.complexity} onChange={e => setEditDraft(d => d && { ...d, complexity: e.target.value as Task['complexity'] })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm">
+                    <option value="Simple">Simple</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Complex">Complex</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={cancelEdit} className="px-3 py-1 text-sm rounded border bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700">Cancel</button>
+              <button onClick={saveEdit} className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
+            </div>
+            <p className="text-[10px] text-neutral-500">Edits are local only (not yet saved to the plan).</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
