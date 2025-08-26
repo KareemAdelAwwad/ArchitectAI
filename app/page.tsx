@@ -33,6 +33,7 @@ import PlanMetrics from '@/components/PlanMetrics';
 import DarkVeil from '@/components/ui/DarkVeil';
 import Link from 'next/link';
 import LandingFooter from '@/components/LandingFooter';
+import { toast } from '@/hooks/use-toast';
 
 // NOTE: Moved HomeClient to components/HomeClient.tsx for type isolation.
 // Keeping implementation here to avoid large refactor; removing named export to satisfy Next type checker.
@@ -712,6 +713,30 @@ function HomeClientInternal() {
                           const data = await res.json();
                           const qs = data.quickStart;
                           setProjectPlan(p => p ? ({ ...p, waterfallPhases: { ...p.waterfallPhases, quickStart: qs } }) : p);
+                          // Browser notification (with graceful fallback) when Quick Start is generated
+                          try {
+                            if (typeof window !== 'undefined') {
+                              const title = 'Quick Start Ready';
+                              const body = `The Quick Start phase${projectPlan?.overview?.title ? ' for ' + projectPlan.overview.title : ''} has been generated.`;
+                              const showNative = async () => {
+                                try {
+                                  new Notification(title, { body, tag: 'quick-start-complete' });
+                                } catch { /* ignore */ }
+                              };
+                              if ('Notification' in window) {
+                                if (Notification.permission === 'granted') {
+                                  showNative();
+                                } else if (Notification.permission === 'default') {
+                                  try {
+                                    const perm = await Notification.requestPermission();
+                                    if (perm === 'granted') showNative();
+                                  } catch { /* ignored */ }
+                                }
+                              }
+                              // Always show an in-app toast as well for immediate feedback
+                              toast({ title, description: body });
+                            }
+                          } catch { /* non-fatal */ }
                         } catch (e: any) {
                           alert('Quick Start generation failed: ' + e.message);
                         } finally {

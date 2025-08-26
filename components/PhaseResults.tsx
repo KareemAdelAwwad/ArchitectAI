@@ -25,6 +25,51 @@ interface PhaseResultsProps {
 export default function PhaseResults({ planning, analysis, design, quickStart, loadingQuickStart, onGenerateQuickStart }: PhaseResultsProps) {
   const [pmChoice, setPmChoice] = React.useState<'npm' | 'yarn' | 'pnpm' | 'bun'>('npm');
 
+  // Unified skeleton for Quick Start generation & regeneration
+  const QuickStartSkeleton: React.FC<{ regenerating?: boolean }> = ({ regenerating }) => (
+    <div className="space-y-10 animate-in fade-in">
+      <div className="flex items-center gap-3">
+        <div className="h-3 w-3 rounded-full bg-indigo-500 animate-ping" />
+        <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+          {regenerating ? 'Regenerating Quick Start (est. 2–5 minutes)...' : 'Generating Quick Start (est. 2–5 minutes)...'}
+        </p>
+      </div>
+      <div className="grid lg:grid-cols-2 gap-10">
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <Skeleton className="h-5 w-64" />
+            <Skeleton className="h-28 w-full" />
+          </section>
+          <section className="space-y-3">
+            <Skeleton className="h-5 w-56" />
+            <Skeleton className="h-40 w-full" />
+          </section>
+          <section className="space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-32 w-full" />
+          </section>
+        </div>
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <Skeleton className="h-5 w-72" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-[92%]" />
+              <Skeleton className="h-3 w-[88%]" />
+              <Skeleton className="h-3 w-[95%]" />
+              <Skeleton className="h-3 w-[70%]" />
+            </div>
+          </section>
+          <section className="space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-44" />
+          </section>
+        </div>
+      </div>
+      <p className="text-[10px] text-neutral-500 dark:text-neutral-400">This process usually finishes in 2–5 minutes. You can navigate elsewhere meanwhile.</p>
+    </div>
+  );
+
   const formatRelative = React.useCallback((iso: string | undefined) => {
     if (!iso) return '—';
     const date = new Date(iso);
@@ -535,62 +580,12 @@ export default function PhaseResults({ planning, analysis, design, quickStart, l
                   </div>
                 )}
                 {loadingQuickStart && !quickStart && (
-                  <div className="space-y-6 animate-in fade-in">
-                    <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-300">
-                      <div className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
-                      <span>Generating Quick Start assets...</span>
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="h-32 rounded-lg bg-gradient-to-br from-neutral-200/70 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 relative overflow-hidden">
-                          <div className="absolute inset-0 animate-[shimmer_2.2s_infinite] bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.4),transparent)] bg-[length:200%_100%]" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <QuickStartSkeleton />
                 )}
                 {quickStart && (
                   <div className="space-y-12">
                     {loadingQuickStart ? (
-                      <div className="space-y-10 animate-in fade-in">
-                        <div className="flex items-center gap-3">
-                          <div className="h-3 w-3 rounded-full bg-indigo-500 animate-ping" />
-                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">Regenerating Quick Start (est. 2–5 minutes)...</p>
-                        </div>
-                        <div className="grid lg:grid-cols-2 gap-10">
-                          <div className="space-y-8">
-                            <section className="space-y-3">
-                              <Skeleton className="h-5 w-64" />
-                              <Skeleton className="h-28 w-full" />
-                            </section>
-                            <section className="space-y-3">
-                              <Skeleton className="h-5 w-56" />
-                              <Skeleton className="h-40 w-full" />
-                            </section>
-                            <section className="space-y-3">
-                              <Skeleton className="h-5 w-40" />
-                              <Skeleton className="h-32 w-full" />
-                            </section>
-                          </div>
-                          <div className="space-y-8">
-                            <section className="space-y-3">
-                              <Skeleton className="h-5 w-72" />
-                              <div className="space-y-2">
-                                <Skeleton className="h-3 w-full" />
-                                <Skeleton className="h-3 w-[92%]" />
-                                <Skeleton className="h-3 w-[88%]" />
-                                <Skeleton className="h-3 w-[95%]" />
-                                <Skeleton className="h-3 w-[70%]" />
-                              </div>
-                            </section>
-                            <section className="space-y-3">
-                              <Skeleton className="h-4 w-32" />
-                              <Skeleton className="h-3 w-44" />
-                            </section>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400">This process usually finishes in 2–5 minutes. You can navigate elsewhere meanwhile.</p>
-                      </div>
+                      <QuickStartSkeleton regenerating />
                     ) : (
                       <>
                         <div className="flex flex-wrap items-center gap-3">
