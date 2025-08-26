@@ -13,7 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Clock, Users, Target, AlertTriangle, Database, Code, Smartphone, Server, Zap, Download, Wand2, Eye, EyeOff } from 'lucide-react';
+import { CheckCircle, Clock, Users, Target, AlertTriangle, Database, Code, Smartphone, Server, Zap, Download, Wand2, Eye, EyeOff, Brain, Info, RotateCcw, Sparkles, ListChecks, AlertCircle } from 'lucide-react';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 import OrbBackground from '@/components/ui/orb-background';
 import AuthButton from '@/components/AuthButton';
 import Sidebar from '@/components/Sidebar';
@@ -84,6 +86,18 @@ function HomeClientInternal() {
   const [aiInstruction, setAiInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [parseOk, setParseOk] = useState<boolean | null>(null);
+  const [parseMessage, setParseMessage] = useState<string>('');
+  const [originalSnapshot, setOriginalSnapshot] = useState<string>('');
+  const instructionSuggestions = [
+    'Add more detailed API Endpoints that cover all use cases',
+    'Add more detailed Database Schemas that cover all use cases',
+    'Add performance optimization tasks',
+    'Clarify database indexing strategy',
+    'Include accessibility considerations',
+    'Refine API error handling details',
+    'Add security hardening steps'
+  ];
 
   // Derive JSON pointer-like options for refinement
   const editableSections = [
@@ -137,11 +151,16 @@ function HomeClientInternal() {
     const value = section.split('.').reduce<any>((acc, key) => acc && acc[key], projectPlan);
     if (Array.isArray(value) && value.length && typeof value[0] === 'object') {
       setEditText(JSON.stringify(value, null, 2));
+      setOriginalSnapshot(JSON.stringify(value, null, 2));
     } else if (Array.isArray(value)) {
       setEditText(value.join('\n'));
+      setOriginalSnapshot(value.join('\n'));
     } else {
       setEditText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+      setOriginalSnapshot(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
     }
+    setParseOk(null);
+    setParseMessage('');
   };
 
   const applyManualEdit = () => {
@@ -167,6 +186,34 @@ function HomeClientInternal() {
     } catch (e) {
       alert('Failed to parse edit: ' + (e as Error).message);
     }
+  };
+
+  // Live parse validation for tasks.* JSON
+  useEffect(() => {
+    if (!editSection) { setParseOk(null); return; }
+    if (editSection.startsWith('tasks.')) {
+      try {
+        const parsed = JSON.parse(editText);
+        if (!Array.isArray(parsed)) throw new Error('Must be an array');
+        setParseOk(true);
+        setParseMessage(`${parsed.length} task${parsed.length === 1 ? '' : 's'} parsed`);
+      } catch (e: any) {
+        setParseOk(false);
+        setParseMessage(e.message);
+      }
+    } else if (editSection.startsWith('waterfallPhases.')) {
+      const lines = editText.split('\n').map(l => l.trim()).filter(Boolean);
+      setParseOk(true);
+      setParseMessage(`${lines.length} item${lines.length === 1 ? '' : 's'} detected`);
+    } else {
+      setParseOk(null);
+      setParseMessage('');
+    }
+  }, [editSection, editText]);
+
+  const revertOriginal = () => {
+    if (!originalSnapshot) return;
+    setEditText(originalSnapshot);
   };
 
   const refineWithAI = async () => {
@@ -390,10 +437,22 @@ function HomeClientInternal() {
   // Show sign-in prompt if not authenticated
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center" data-page>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen" data-page>
+        <div className="absolute inset-0">
+          {/* Enhanced spinner experience */}
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <div className="absolute -inset-6 animate-[spin_6s_linear_infinite] opacity-40 blur-xl rounded-full bg-[conic-gradient(from_0deg,theme(colors.violet.500/.4),transparent_55%,theme(colors.fuchsia.500/.4))]" />
+                <div className="relative">
+                  {/* Import lightweight spinner */}
+                  {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
+                  {(() => { const Spinner = require('@/components/ui/spinner').Spinner; return <Spinner size="lg" label="Loading session" />; })()}
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground tracking-wide">Authenticating…</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -599,52 +658,99 @@ function HomeClientInternal() {
                 </Tabs>
               </div>
               <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-6xl">
                   <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!(isOwner || collaboratorRole === 'editor') && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2">
+                      {editSection ? `Edit / Refine: ${sectionLabels[editSection] || editSection}` : 'Refine or Edit Plan Section'}
+                      {!(isOwner || collaboratorRole === 'editor') && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}
+                    </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">Choose Section</label>
-                      <select
-                        className="mt-1 w-full border rounded px-2 py-1 text-sm bg-white/70 dark:bg-neutral-800/60"
-                        value={editSection || ''}
-                        onChange={(e) => openManualEdit(e.target.value)}
-                      >
-                        <option value="" disabled>Select a section...</option>
-                        {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
-                      <Textarea
-                        rows={10}
-                        value={editText}
-                        onChange={e => setEditText(e.target.value)}
-                        className="font-mono text-xs bg-white/70 dark:bg-neutral-800/60"
-                        disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
-                        placeholder={editSection ? '' : 'Select a section first'}
-                      />
-                    </div>
-                    <Separator />
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
-                      <Textarea
-                        rows={3}
-                        placeholder={(isOwner || collaboratorRole === 'editor') ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
-                        value={aiInstruction}
-                        onChange={e => setAiInstruction(e.target.value)}
-                        disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
-                        className="bg-white/70 dark:bg-neutral-800/60"
-                      />
-                      <div className="flex gap-2">
-                        <Button type="button" variant="outline" disabled={!editSection || isRefining || !(isOwner || collaboratorRole === 'editor')} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
-                        <Button type="button" variant="default" disabled={!editSection || !(isOwner || collaboratorRole === 'editor')} onClick={applyManualEdit}>Apply Manual Edit</Button>
+                  <div className="grid md:grid-cols-3 gap-6 mt-2">
+                    {/* Left column: selection & help */}
+                    <div className="space-y-4 md:col-span-1">
+                      <div>
+                        <label className="text-xs font-medium uppercase tracking-wide flex items-center gap-1 text-neutral-600 dark:text-neutral-400"><ListChecks className="h-3.5 w-3.5" /> Section</label>
+                        <Select value={editSection || ''} onValueChange={(v) => openManualEdit(v)}>
+                          <SelectTrigger className="mt-1 h-9 w-full text-xs bg-white/70 dark:bg-neutral-800/60 disabled:opacity-50" disabled={!(isOwner || collaboratorRole === 'editor')}>
+                            <SelectValue placeholder="Select section..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-72">
+                            {editableSections.map(s => <SelectItem key={s} value={s} className="text-xs py-1.5">{sectionLabels[s] || s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {!(isOwner || collaboratorRole === 'editor') && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
+                      <div className="rounded-md border p-3 bg-white/60 dark:bg-neutral-800/50 space-y-2 text-xs leading-relaxed">
+                        <div className="flex items-start gap-2"><Info className="h-4 w-4 text-indigo-500" />
+                          <p className="font-medium">Format Guide</p>
+                        </div>
+                        {editSection?.startsWith('tasks.') ? (
+                          <>
+                            <p>Provide a JSON array of task objects. Each task may include: title, description, estimateHours, dependencies (array), completed (bool).</p>
+                            <p className="font-mono bg-neutral-900/60 text-neutral-200 p-2 rounded text-[10px]">[{`{"title":"Implement auth","estimateHours":6}`}]</p>
+                          </>
+                        ) : editSection?.startsWith('waterfallPhases.') ? (
+                          <p>Enter one item per line. Blank lines are ignored.</p>
+                        ) : <p>Select a section to view formatting help.</p>}
+                        {parseOk !== null && (
+                          <div className={`flex items-center gap-1.5 text-[11px] font-medium ${parseOk ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {parseOk ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />} {parseMessage}
+                          </div>
+                        )}
+                        {originalSnapshot && editSection && (
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-[11px] w-full justify-center" onClick={revertOriginal} disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}>
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" /> Revert Original
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-fuchsia-500" /> Suggestions</p>
+                        <div className="flex flex-wrap gap-1">
+                          {instructionSuggestions.map(s => (
+                            <button key={s} type="button" onClick={() => setAiInstruction(ai => ai ? ai.trimEnd() + (ai.trim().endsWith('.') ? ' ' : '. ') + s + '.' : s + '.')} className="px-2 py-1 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 text-[11px] text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 transition">
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Right column: editing */}
+                    <div className="md:col-span-2 space-y-5">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">Manual Content {editSection ? <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">{editSection.startsWith('tasks.') ? '(JSON Array of Tasks)' : '(Line-separated Items)'}</span> : null}</label>
+                        <Textarea
+                          rows={12}
+                          value={editText}
+                          onChange={e => setEditText(e.target.value)}
+                          className="font-mono text-xs bg-white/70 dark:bg-neutral-800/60 resize-y min-h-[220px]"
+                          disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
+                          placeholder={editSection ? '' : 'Select a section first'}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">AI Instruction <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">(optional)</span></label>
+                        <Textarea
+                          rows={4}
+                          placeholder={(isOwner || collaboratorRole === 'editor') ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Viewer access – editing disabled'}
+                          value={aiInstruction}
+                          onChange={e => setAiInstruction(e.target.value)}
+                          disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
+                          className="bg-white/70 dark:bg-neutral-800/60"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="button" variant="outline" disabled={!editSection || isRefining || !(isOwner || collaboratorRole === 'editor')} onClick={refineWithAI} className="gap-1">
+                            {isRefining ? <Spinner size="xs" label="Refining" /> : <Brain className="h-4 w-4" />}
+                            {isRefining ? 'Refining...' : 'Refine with AI'}
+                          </Button>
+                          <Button type="button" variant="default" disabled={!editSection || !(isOwner || collaboratorRole === 'editor') || (editSection?.startsWith('tasks.') && parseOk === false)} onClick={applyManualEdit} className="gap-1">
+                            <Wand2 className="h-4 w-4" /> Apply Manual Edit
+                          </Button>
+                        </div>
+                        {!(isOwner || collaboratorRole === 'editor') && <p className="text-xs text-neutral-500">You have read-only access. Ask the owner for edit permissions.</p>}
+                      </div>
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className="mt-4 flex items-center justify-between">
+                    <p className="text-[10px] text-neutral-500 dark:text-neutral-400">Changes apply locally until you regenerate or export.</p>
                     <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
                   </DialogFooter>
                 </DialogContent>

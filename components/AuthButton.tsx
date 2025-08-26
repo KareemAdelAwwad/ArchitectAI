@@ -12,14 +12,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User, Github } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
 
   if (status === 'loading') {
     return (
-      <Button variant="ghost" disabled>
-        Loading...
+      <Button variant="ghost" disabled className="gap-2">
+        <Spinner size="xs" variant="subtle" label="Loading session" />
       </Button>
     );
   }

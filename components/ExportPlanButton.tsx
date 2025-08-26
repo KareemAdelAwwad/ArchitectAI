@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileDown, Loader2, FileJson, FileUp } from 'lucide-react';
+import { FileDown, FileJson, FileUp } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useRef } from 'react';
 
@@ -97,7 +98,7 @@ export default function ExportPlanButton({ planId }: Props) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button disabled={loading} variant="outline" className="gap-2" aria-label="File menu">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            {loading ? <Spinner size="xs" variant="subtle" label={progress !== null ? `Export ${progress}%` : 'Working'} /> : <FileDown className="w-4 h-4" />}
             {loading ? (progress !== null ? `File ${progress}%` : 'Working…') : 'File'}
           </Button>
         </DropdownMenuTrigger>

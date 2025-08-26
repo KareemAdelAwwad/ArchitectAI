@@ -2,7 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileUp, Loader2 } from 'lucide-react';
+import { FileUp } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Props { onImported?: (newPlanId: string) => void; }
 
@@ -44,8 +45,8 @@ export default function ImportPlanButton({ onImported }: Props) {
     <>
       <input ref={inputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleFile} />
       <Button onClick={handleClick} variant="outline" size="sm" className="gap-2" disabled={loading}>
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-        {loading ? 'Importing...' : 'Import Plan'}
+        {loading ? <Spinner size="xs" variant="subtle" label="Importing" /> : <FileUp className="w-4 h-4" />}
+        {loading ? 'Importing…' : 'Import Plan'}
       </Button>
     </>
   );

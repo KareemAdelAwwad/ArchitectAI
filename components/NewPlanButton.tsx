@@ -21,7 +21,7 @@ export const NewPlanButton: React.FC<NewPlanButtonProps> = ({ onClick, href, cla
           <Plus className="h-4 w-4 text-white drop-shadow-sm transition-transform duration-500 group-hover:rotate-90" />
           <span className="absolute inset-0 bg-primary/40 dark:bg-primary/50 opacity-0 group-hover:opacity-100 transition-opacity" />
         </span>
-        <span className="tracking-tight text-white">New Plan</span>
+        <span className="tracking-tight text-white dark:text-black text-lg">New Plan</span>
       </span>
     </>
   );

@@ -20,7 +20,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const token = crypto.randomBytes(16).toString('hex');
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
   await db.collection('plan_invites').insertOne({ planId: params.id, token, role, creatorId: session.user.id, createdAt: new Date(), expiresAt, used: false });
-  return NextResponse.json({ token, url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/plans/${params.id}/invite-link/accept?token=${token}` });
+  // Provide a user-facing URL that, when visited after authentication, will auto-join the plan
+  // Plan page will detect ?inviteToken= and consume it server-side.
+  // Ensure absolute URL; fallback to localhost during development if env not provided.
+  const base = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  return NextResponse.json({ token, url: `${base}/plans/${params.id}?inviteToken=${token}` });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

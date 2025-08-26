@@ -9,17 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, Wand2, Loader2 } from 'lucide-react';
+import { X, Plus, Wand2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { ProjectInput } from '@/types/project';
 
 interface ProjectInputFormProps { onSubmit: (projectInput: ProjectInput) => void; }
 
 const commonTechStacks = {
-  Frontend: ['React', 'Vue.js', 'Angular', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Material-UI', 'Bootstrap'],
-  Backend: ['Node.js', 'Python', 'Java', 'C#', 'Go', 'Ruby', 'PHP', 'Express.js', 'Django', 'Spring Boot'],
+  Frontend: ['React', 'Vue.js', 'Angular', 'Next.js', 'TypeScript', 'Tailwind CSS', 'ShadCN', 'Material-UI', 'Bootstrap'],
+  Backend: ['Node.js', 'Python', 'Java', 'C#', 'Go', 'Ruby', 'PHP', 'Express.js', 'Django', 'Spring Boot', 'Nest.js', 'Elysia.js'],
   'Full Stack': ['React', 'Node.js', 'Next.js', 'TypeScript', 'MongoDB', 'PostgreSQL', 'Firebase', 'Supabase'],
   Database: ['PostgreSQL', 'MongoDB', 'MySQL', 'Redis', 'Firebase', 'Supabase', 'DynamoDB'],
   Cloud: ['AWS', 'Google Cloud', 'Azure', 'Vercel', 'Netlify', 'Railway', 'Docker', 'Kubernetes'],
+  "Package Manager": ['npm', 'Yarn', 'pnpm', 'bun'],
+  Auth: ['Better Auth', 'Auth0', 'Firebase Auth', 'Supabase Auth', 'NextAuth.js', 'Clerk'],
 };
 
 export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
@@ -317,7 +320,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
               <span className="flex items-center gap-2 font-medium">
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner size="xs" variant="secondary" label="Generating" />
                     <span>Generating…</span>
                   </>
                 ) : (
