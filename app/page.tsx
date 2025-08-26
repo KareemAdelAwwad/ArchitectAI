@@ -417,6 +417,46 @@ function HomeClientInternal() {
     }
   };
 
+  const handleTaskEdit = async (taskId: string, updates: Partial<{ title: string; description: string; estimatedHours: number; complexity: string; }>) => {
+    if (!projectPlan) return;
+    // Optimistic local update
+    setProjectPlan(prev => {
+      if (!prev) return prev;
+      const updateArr = (arr: any[]) => arr.map(t => t.id === taskId ? { ...t, ...updates } : t);
+      return { ...prev, tasks: { frontend: updateArr(prev.tasks.frontend), backend: updateArr(prev.tasks.backend), integration: updateArr(prev.tasks.integration), deployment: updateArr(prev.tasks.deployment) } };
+    });
+    if (!currentPlanId) return; // unsaved plan
+    try {
+      await fetch(`/api/plans/${currentPlanId}/tasks`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, updates })
+      });
+    } catch (e) {
+      console.error('Failed to persist task edit', e);
+    }
+  };
+
+  const handleTaskDelete = async (taskId: string) => {
+    if (!projectPlan) return;
+    // Optimistic local removal
+    setProjectPlan(prev => {
+      if (!prev) return prev;
+      const remove = (arr: any[]) => arr.filter(t => t.id !== taskId);
+      return { ...prev, tasks: { frontend: remove(prev.tasks.frontend), backend: remove(prev.tasks.backend), integration: remove(prev.tasks.integration), deployment: remove(prev.tasks.deployment) } };
+    });
+    if (!currentPlanId) return;
+    try {
+      await fetch(`/api/plans/${currentPlanId}/tasks`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, delete: true })
+      });
+    } catch (e) {
+      console.error('Failed to persist task deletion', e);
+    }
+  };
+
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // Robust query parsing (supports malformed '?tab=phases?cat=design')
@@ -742,6 +782,8 @@ function HomeClientInternal() {
                       key={(currentPlanId || projectPlan.overview.title) + ':tasks'}
                       tasks={projectPlan.tasks}
                       onToggleTask={handleTaskToggle}
+                      onEditTask={handleTaskEdit}
+                      onDeleteTask={handleTaskDelete}
                       readOnly={!isOwner && collaboratorRole !== 'editor'}
                       initialCategory={taskCategory}
                       onCategoryChange={(c) => setTaskCategory(c)}

@@ -8,11 +8,20 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, CheckCircle2, Circle, Smartphone, Server, Zap, Cloud, Trash2, Pencil } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
 import { TaskCollection, Task } from "@/types/project";
 
 interface TaskListProps {
   tasks: TaskCollection;
   onToggleTask?: (taskId: string, completed: boolean) => void;
+  onEditTask?: (taskId: string, updates: Partial<Pick<Task, 'title' | 'description' | 'estimatedHours' | 'complexity'>>) => void | Promise<void>;
+  onDeleteTask?: (taskId: string) => void | Promise<void>;
   readOnly?: boolean;
   initialCategory?: string; // controlled initial tab category via URL (all|frontend|backend|integration|deployment)
   onCategoryChange?: (category: string) => void; // notify parent of category tab change for URL sync
@@ -46,13 +55,16 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export default function TaskList({ tasks, onToggleTask, readOnly, initialCategory, onCategoryChange }: TaskListProps) {
+export default function TaskList({ tasks, onToggleTask, onEditTask, onDeleteTask, readOnly, initialCategory, onCategoryChange }: TaskListProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [filterComplexity, setFilterComplexity] = useState<string>("all");
+  // Optimistic tracking of edits/deletes (mirrors parent updates for snappy UI)
   const [deletedTasks, setDeletedTasks] = useState<Set<string>>(new Set());
   const [editedTasks, setEditedTasks] = useState<Map<string, Partial<Task>>>(new Map());
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<{ title: string; description: string; estimatedHours: number; complexity: Task['complexity'] } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pendingDeleteTaskId, setPendingDeleteTaskId] = useState<string | null>(null);
 
   // Sync completed tasks when tasks prop changes
   useEffect(() => {
@@ -185,31 +197,43 @@ export default function TaskList({ tasks, onToggleTask, readOnly, initialCategor
                               </Badge>
                               {!readOnly && (
                                 <div className="flex items-center gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (confirm('Delete this task locally? (Not persisted)')) {
-                                        setDeletedTasks(prev => new Set(prev).add(task.id));
-                                      }
-                                    }}
-                                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
-                                    aria-label="Delete task"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingTaskId(task.id);
-                                      setEditDraft({ title: applied.title, description: applied.description, estimatedHours: applied.estimatedHours, complexity: applied.complexity });
-                                    }}
-                                    className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600"
-                                    aria-label="Edit task"
-                                  >
-                                    <Pencil className="w-4 h-4" />
-                                  </button>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!onDeleteTask || readOnly) return;
+                                            setPendingDeleteTaskId(task.id);
+                                            setDeleteDialogOpen(true);
+                                          }}
+                                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                                          aria-label="Delete task"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Delete</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingTaskId(task.id);
+                                            setEditDraft({ title: applied.title, description: applied.description, estimatedHours: applied.estimatedHours, complexity: applied.complexity });
+                                          }}
+                                          className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600"
+                                          aria-label="Edit task"
+                                        >
+                                          <Pencil className="w-4 h-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Edit</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
                               )}
                             </div>
@@ -239,10 +263,14 @@ export default function TaskList({ tasks, onToggleTask, readOnly, initialCategor
   };
 
   // Editing modal (simple inline overlay)
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingTaskId || !editDraft) return;
+    // Optimistic apply
     setEditedTasks(prev => { const m = new Map(prev); m.set(editingTaskId, { ...editDraft }); return m; });
+    const taskId = editingTaskId;
     setEditingTaskId(null); setEditDraft(null);
+    try { await onEditTask?.(taskId, { ...editDraft }); toast({ title: 'Task updated', description: 'Your changes were saved.' }); }
+    catch { setEditedTasks(prev => { const m = new Map(prev); m.delete(taskId); return m; }); toast({ title: 'Update failed', description: 'Could not save changes.', variant: 'destructive' as any }); }
   };
   const cancelEdit = () => { setEditingTaskId(null); setEditDraft(null); };
 
@@ -375,42 +403,74 @@ export default function TaskList({ tasks, onToggleTask, readOnly, initialCategor
           )}
         </TabsContent>
       </Tabs>
-      {editingTaskId && editDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl p-6 space-y-4">
-            <h3 className="text-lg font-semibold">Edit Task</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium">Title</label>
-                <input value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
-              </div>
-              <div>
-                <label className="text-xs font-medium">Description</label>
-                <textarea value={editDraft.description} onChange={e => setEditDraft(d => d && { ...d, description: e.target.value })} rows={4} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium">Hours</label>
-                  <input type="number" min={0} value={editDraft.estimatedHours} onChange={e => setEditDraft(d => d && { ...d, estimatedHours: Number(e.target.value) })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm" />
+      <Dialog open={!!editingTaskId && !!editDraft} onOpenChange={(open) => { if (!open) cancelEdit(); }}>
+        <DialogContent>
+          {editDraft && (
+            <form onSubmit={(e) => { e.preventDefault(); if (!editDraft.title.trim()) return; saveEdit(); }} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>Edit Task</DialogTitle>
+                <DialogDescription>Update the task details below. All changes persist on save.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium" htmlFor="task-title">Title</label>
+                  <Input id="task-title" value={editDraft.title} onChange={e => setEditDraft(d => d && { ...d, title: e.target.value })} required maxLength={140} placeholder="Implement user login flow" />
                 </div>
-                <div>
-                  <label className="text-xs font-medium">Complexity</label>
-                  <select value={editDraft.complexity} onChange={e => setEditDraft(d => d && { ...d, complexity: e.target.value as Task['complexity'] })} className="w-full mt-1 rounded border px-2 py-1 bg-white dark:bg-neutral-800 text-sm">
-                    <option value="Simple">Simple</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Complex">Complex</option>
-                  </select>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium" htmlFor="task-desc">Description</label>
+                  <Textarea id="task-desc" value={editDraft.description} onChange={e => setEditDraft(d => d && { ...d, description: e.target.value })} rows={5} placeholder="Add detailed steps, acceptance criteria, edge cases..." />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium" htmlFor="task-hours">Hours</label>
+                    <Input id="task-hours" type="number" min={0} value={editDraft.estimatedHours} onChange={e => setEditDraft(d => d && { ...d, estimatedHours: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium" htmlFor="task-complexity">Complexity</label>
+                    <Select value={editDraft.complexity} onValueChange={(v) => setEditDraft(d => d && { ...d, complexity: v as Task['complexity'] })}>
+                      <SelectTrigger id="task-complexity"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Simple">Simple</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="Complex">Complex</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={cancelEdit} className="px-3 py-1 text-sm rounded border bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700">Cancel</button>
-              <button onClick={saveEdit} className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
-            </div>
-            <p className="text-[10px] text-neutral-500">Edits are local only (not yet saved to the plan).</p>
-          </div>
-        </div>
-      )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                <Button type="submit" disabled={!editDraft.title.trim()}>Save</Button>
+              </DialogFooter>
+              <p className="text-[10px] text-neutral-500">Title required. Complexity affects highlighting & metrics.</p>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>This action will permanently remove the task from this plan.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setPendingDeleteTaskId(null); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={async () => {
+                if (!pendingDeleteTaskId || !onDeleteTask) return;
+                const id = pendingDeleteTaskId;
+                // optimistic (already handled in UI button, but ensure if dialog triggered directly)
+                setDeletedTasks(prev => new Set(prev).add(id));
+                setDeleteDialogOpen(false);
+                setPendingDeleteTaskId(null);
+                try { await onDeleteTask(id); toast({ title: 'Task deleted' }); }
+                catch { setDeletedTasks(prev => { const n = new Set(prev); n.delete(id); return n; }); toast({ title: 'Delete failed', description: 'Could not remove task.', variant: 'destructive' as any }); }
+              }}
+            >Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
