@@ -122,62 +122,69 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
             </p>
           ) : (
             <div className="space-y-4">
-              {categoryTasks.map((task) => {
-                const doneTask = completedTasks.has(task.id);
-                return (
-                  <div
-                    key={task.id}
-                    className={`group rounded-lg border p-4 transition-colors shadow-sm/5 hover:shadow-sm focus-within:ring-2 focus-within:ring-primary/30 outline-none ${doneTask
+              {[...categoryTasks]
+                .sort((a, b) => {
+                  const aDone = completedTasks.has(a.id);
+                  const bDone = completedTasks.has(b.id);
+                  if (aDone === bDone) return 0;
+                  return aDone ? 1 : -1; // completed go last
+                })
+                .map((task) => {
+                  const doneTask = completedTasks.has(task.id);
+                  return (
+                    <div
+                      key={task.id}
+                      className={`group rounded-lg border p-4 transition-colors shadow-sm/5 hover:shadow-sm focus-within:ring-2 focus-within:ring-primary/30 outline-none ${doneTask
                         ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                         : "bg-white/80 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800"
-                      }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={doneTask}
-                        onCheckedChange={() => toggleTaskCompletion(task.id)}
-                        className={`mt-1 ${readOnly ? "pointer-events-none opacity-60" : ""}`}
-                        disabled={readOnly}
-                        aria-label={doneTask ? "Mark task incomplete" : "Mark task complete"}
-                      />
-                      <div className="flex-1">
-                        <div className="mb-2 flex items-start justify-between gap-4">
-                          <h4
-                            className={`font-semibold leading-snug tracking-tight ${doneTask ? "line-through text-muted-foreground" : ""
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={doneTask}
+                          onCheckedChange={() => toggleTaskCompletion(task.id)}
+                          className={`mt-1 ${readOnly ? "pointer-events-none opacity-60" : ""}`}
+                          disabled={readOnly}
+                          aria-label={doneTask ? "Mark task incomplete" : "Mark task complete"}
+                        />
+                        <div className="flex-1">
+                          <div className="mb-2 flex items-start justify-between gap-4">
+                            <h4
+                              className={`font-semibold leading-snug tracking-tight ${doneTask ? "line-through text-muted-foreground" : ""
+                                }`}
+                            >
+                              {task.title}
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getComplexityColor(task.complexity)}>
+                                {task.complexity}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <Clock className="h-3 w-3" />
+                                {task.estimatedHours}h
+                              </Badge>
+                            </div>
+                          </div>
+                          <p
+                            className={`mb-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 ${doneTask ? "line-through opacity-70" : ""
                               }`}
                           >
-                            {task.title}
-                          </h4>
-                          <div className="flex items-center gap-2">
-                            <Badge className={getComplexityColor(task.complexity)}>
-                              {task.complexity}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className="flex items-center gap-1 text-xs"
-                            >
-                              <Clock className="h-3 w-3" />
-                              {task.estimatedHours}h
-                            </Badge>
-                          </div>
+                            {task.description}
+                          </p>
+                          {task.dependencies.length > 0 && (
+                            <div className="text-xs text-neutral-500 dark:text-neutral-500">
+                              <span className="font-medium">Dependencies:</span>{" "}
+                              {task.dependencies.join(", ")}
+                            </div>
+                          )}
                         </div>
-                        <p
-                          className={`mb-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 ${doneTask ? "line-through opacity-70" : ""
-                            }`}
-                        >
-                          {task.description}
-                        </p>
-                        {task.dependencies.length > 0 && (
-                          <div className="text-xs text-neutral-500 dark:text-neutral-500">
-                            <span className="font-medium">Dependencies:</span>{" "}
-                            {task.dependencies.join(", ")}
-                          </div>
-                        )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </CardContent>
