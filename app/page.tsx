@@ -746,8 +746,7 @@ function HomeClientInternal() {
                             }
                           } catch { /* non-fatal */ }
                         } catch (e: any) {
-                          const msg = e?.message || 'Unknown error';
-                          alert('Quick Start generation failed: ' + msg);
+                          // Suppress alert; instead attempt a silent refresh to re-render Quick Start phase.
                           // Opportunistic refresh: in some cases the generation succeeded but response failed (timeout / 504)
                           if (currentPlanId) {
                             try {
