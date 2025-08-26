@@ -224,7 +224,7 @@ export default function Sidebar({
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white dark:text-white dark:bg-red-600 dark:hover:bg-red-500"
                                   onClick={(e) => { e.stopPropagation(); deletePlan(savedPlan._id); }}
                                 >
                                   Delete
@@ -234,14 +234,36 @@ export default function Sidebar({
                           </AlertDialog>
                         </div>
                       ) : savedPlan.collaboratorRole ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                          onClick={(e) => { e.stopPropagation(); leavePlan(savedPlan._id); }}
-                        >
-                          Leave
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                              onClick={(e) => { e.stopPropagation(); }}
+                              title="Leave plan"
+                            >
+                              Leave
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="max-w-sm">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Leave this plan?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                You will lose access unless re-invited by the owner. Your previous contributions remain.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white dark:text-white dark:bg-red-600 dark:hover:bg-red-500"
+                                onClick={(e) => { e.stopPropagation(); leavePlan(savedPlan._id); }}
+                              >
+                                Confirm Leave
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       ) : null}
                     </div>
                   </CardHeader>

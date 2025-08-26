@@ -374,7 +374,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
         <div className="flex-1 flex flex-col">
-          <TopNav onNewProject={handleNewProject} />
+          <TopNav />
           <div className="mx-auto w-full max-w-6xl px-4 py-10">
             <div className="text-center mb-12">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-6 bg-gradient-to-tr from-blue-600 to-purple-600 shadow-lg ring-1 ring-black/5">
@@ -492,7 +492,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className={`flex flex-col w-full transition-all duration-300 ease-out ${sidebarCollapsed ? 'pl-0' : ''}`}>
-        <TopNav onNewProject={handleNewProject} right={projectPlan && currentPlanId ? <ExportPlanButton planId={currentPlanId} /> : undefined} />
+        <TopNav right={projectPlan && currentPlanId ? <ExportPlanButton planId={currentPlanId} /> : undefined} />
         <div className={`px-6 py-10 transition-all duration-300 w-full max-w-[90rem] mx-auto ${sidebarCollapsed ? '' : ''}`}>
           <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
             <div>
@@ -500,63 +500,65 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
               <p className="text-neutral-600 dark:text-neutral-400">Your comprehensive development roadmap is ready</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {projectPlan && (() => { const canEdit = isOwner || collaboratorRole === 'editor'; return (
-                <>
-                  <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }} title={canEdit ? 'Refine or manually edit a section' : 'View sections (read-only)'}>
-                    Edit / Refine
-                  </Button>
-                  <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
-                    <DialogContent className="max-w-2xl">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!canEdit && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium">Choose Section</label>
-                          <select
-                            className="mt-1 w-full border rounded px-2 py-1 text-sm"
-                            value={editSection || ''}
-                            onChange={(e) => openManualEdit(e.target.value)}
-                          >
-                            <option value="" disabled>Select a section...</option>
-                            {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
-                          </select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
-                          <Textarea
-                            rows={10}
-                            value={editText}
-                            onChange={e => setEditText(e.target.value)}
-                            className="font-mono text-xs"
-                            disabled={!editSection || !canEdit}
-                            placeholder={editSection ? '' : 'Select a section first'}
-                          />
-                        </div>
-                        <Separator />
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
-                          <Textarea
-                            rows={3}
-                            placeholder={canEdit ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
-                            value={aiInstruction}
-                            onChange={e => setAiInstruction(e.target.value)}
-                            disabled={!editSection || !canEdit}
-                          />
-                          <div className="flex gap-2">
-                            <Button type="button" variant="outline" disabled={!editSection || isRefining || !canEdit} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
-                            <Button type="button" variant="default" disabled={!editSection || !canEdit} onClick={applyManualEdit}>Apply Manual Edit</Button>
+              {projectPlan && (() => {
+                const canEdit = isOwner || collaboratorRole === 'editor'; return (
+                  <>
+                    <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }} title={canEdit ? 'Refine or manually edit a section' : 'View sections (read-only)'}>
+                      Edit / Refine
+                    </Button>
+                    <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!canEdit && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm font-medium">Choose Section</label>
+                            <select
+                              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+                              value={editSection || ''}
+                              onChange={(e) => openManualEdit(e.target.value)}
+                            >
+                              <option value="" disabled>Select a section...</option>
+                              {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
+                            </select>
                           </div>
-                          {!canEdit && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
+                            <Textarea
+                              rows={10}
+                              value={editText}
+                              onChange={e => setEditText(e.target.value)}
+                              className="font-mono text-xs"
+                              disabled={!editSection || !canEdit}
+                              placeholder={editSection ? '' : 'Select a section first'}
+                            />
+                          </div>
+                          <Separator />
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
+                            <Textarea
+                              rows={3}
+                              placeholder={canEdit ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
+                              value={aiInstruction}
+                              onChange={e => setAiInstruction(e.target.value)}
+                              disabled={!editSection || !canEdit}
+                            />
+                            <div className="flex gap-2">
+                              <Button type="button" variant="outline" disabled={!editSection || isRefining || !canEdit} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
+                              <Button type="button" variant="default" disabled={!editSection || !canEdit} onClick={applyManualEdit}>Apply Manual Edit</Button>
+                            </div>
+                            {!canEdit && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
+                          </div>
                         </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </>
-              ); })()}
+                        <DialogFooter>
+                          <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                );
+              })()}
             </div>
           </div>
 
