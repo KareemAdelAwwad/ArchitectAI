@@ -10,9 +10,11 @@ interface PlanOverviewHeroProps {
   isOwner?: boolean;
   collaboratorRole?: 'viewer' | 'editor' | null;
   collaborators?: Array<{ userId: string; role: 'viewer' | 'editor'; name?: string | null; image?: string | null }>;
+  onUpdateTechStack?: (stack: string[]) => Promise<void> | void;
+  techStackSaving?: boolean;
 }
 
-export const PlanOverviewHero: React.FC<PlanOverviewHeroProps> = ({ plan, isOwner, collaboratorRole, collaborators }) => {
+export const PlanOverviewHero: React.FC<PlanOverviewHeroProps> = ({ plan, isOwner, collaboratorRole, collaborators, onUpdateTechStack, techStackSaving }) => {
   const stats = useMemo(() => {
     const allTasks = [
       ...plan.tasks.frontend,
@@ -25,6 +27,17 @@ export const PlanOverviewHero: React.FC<PlanOverviewHeroProps> = ({ plan, isOwne
     const complexityCounts = allTasks.reduce<Record<string, number>>((acc, t) => { acc[t.complexity] = (acc[t.complexity] || 0) + 1; return acc; }, {});
     return { allTasks, completed, hours, complexityCounts };
   }, [plan]);
+
+  const canEdit = !!(isOwner || collaboratorRole === 'editor');
+  const [editing, setEditing] = React.useState(false);
+  const [editValue, setEditValue] = React.useState(plan.overview.techStack.join('\n'));
+  React.useEffect(() => { if (!editing) setEditValue(plan.overview.techStack.join('\n')); }, [plan.overview.techStack, editing]);
+
+  const handleSave = async () => {
+    const items = editValue.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    await onUpdateTechStack?.(items);
+    setEditing(false);
+  };
 
   return (
     <div className="relative rounded-3xl overflow-hidden border border-border/60 bg-gradient-to-br from-indigo-600/20 via-fuchsia-600/10 to-transparent dark:from-indigo-500/15 dark:via-fuchsia-500/10 dark:to-transparent p-[1px] shadow-xl">
@@ -44,12 +57,39 @@ export const PlanOverviewHero: React.FC<PlanOverviewHeroProps> = ({ plan, isOwne
             <p className="max-w-3xl text-sm md:text-base leading-relaxed text-neutral-700 dark:text-neutral-300">
               {plan.overview.description}
             </p>
-            <div className="flex flex-wrap gap-2 pt-1 max-h-44 overflow-auto pr-1">
-              {plan.overview.techStack.map(t => (
-                <span key={t} className="text-[11px] px-2 py-1 rounded-md border border-border/60 bg-white/50 dark:bg-neutral-800/60 dark:border-neutral-700 tracking-tight font-medium text-neutral-700 dark:text-neutral-200">
-                  {t}
-                </span>
-              ))}
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Tech Stack</span>
+                {canEdit && !editing && (
+                  <button type="button" onClick={() => setEditing(true)} className="text-[11px] px-2 py-1 rounded-md border border-indigo-500/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-neutral-800/60 transition">
+                    Edit
+                  </button>
+                )}
+              </div>
+              {!editing && (
+                <div className="flex flex-wrap gap-2 pt-1 max-h-44 overflow-auto pr-1">
+                  {plan.overview.techStack.map(t => (
+                    <span key={t} className="text-[11px] px-2 py-1 rounded-md border border-border/60 bg-white/50 dark:bg-neutral-800/60 dark:border-neutral-700 tracking-tight font-medium text-neutral-700 dark:text-neutral-200">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {editing && (
+                <div className="space-y-2">
+                  <textarea
+                    className="w-full h-28 text-xs font-mono rounded-md border border-border/60 bg-white/70 dark:bg-neutral-800/60 p-2 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400/50"
+                    value={editValue}
+                    disabled={techStackSaving}
+                    onChange={e => setEditValue(e.target.value)}
+                    placeholder="One item per line or comma separated"
+                  />
+                  <div className="flex gap-2">
+                    <button type="button" disabled={techStackSaving} onClick={handleSave} className="px-3 py-1.5 text-[11px] rounded-md bg-indigo-600 text-white font-medium hover:bg-indigo-500 disabled:opacity-50">{techStackSaving ? 'Saving...' : 'Save'}</button>
+                    <button type="button" disabled={techStackSaving} onClick={() => { setEditing(false); setEditValue(plan.overview.techStack.join('\n')); }} className="px-3 py-1.5 text-[11px] rounded-md border border-border/60 bg-white/70 dark:bg-neutral-800/60 hover:bg-neutral-100 dark:hover:bg-neutral-700/60">Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-4">

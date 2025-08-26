@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { ShinyButton } from '@/components/ui/shiny-button';
@@ -50,6 +51,8 @@ function HomeClientInternal() {
   const initialIsOwner = init.initialIsOwner ?? false;
   const initialCollaboratorRole = init.initialCollaboratorRole ?? null;
   const { data: session, status } = useSession();
+  // Hook for forcing dark theme on unauthenticated landing
+  const { setTheme } = useTheme();
   const [currentStep, setCurrentStep] = useState<'input' | 'processing' | 'results'>(initialPlan ? 'results' : 'input');
   const [projectPlan, setProjectPlan] = useState<ProjectPlan | null>(initialPlan ?? null);
   const [processingProgress, setProcessingProgress] = useState(0);
@@ -58,6 +61,8 @@ function HomeClientInternal() {
   const [collaboratorRole, setCollaboratorRole] = useState<'viewer' | 'editor' | null>(initialCollaboratorRole);
   const [collaborators, setCollaborators] = useState<Array<{ userId: string; role: 'viewer' | 'editor'; name?: string | null; image?: string | null }>>([]);
   const [showMetadata, setShowMetadata] = useState<boolean>(true);
+  const [metaPrefLoaded, setMetaPrefLoaded] = useState(false);
+  const [savingTechStack, setSavingTechStack] = useState(false);
 
   useEffect(() => {
     if (initialPlanId) {
@@ -70,21 +75,24 @@ function HomeClientInternal() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('sidebarCollapsed');
-      if (saved) setSidebarCollapsed(saved === 'true');
+      if (saved !== null) setSidebarCollapsed(saved === 'true');
       const metaPref = localStorage.getItem('showPlanMetadata');
-      if (metaPref) setShowMetadata(metaPref === 'true');
+      if (metaPref !== null) setShowMetadata(metaPref === 'true');
     } catch { }
+    setMetaPrefLoaded(true);
   }, []);
   useEffect(() => {
     try { localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed)); } catch { }
   }, [sidebarCollapsed]);
   useEffect(() => {
+    if (!metaPrefLoaded) return; // avoid writing before initial load
     try { localStorage.setItem('showPlanMetadata', String(showMetadata)); } catch { }
-  }, [showMetadata]);
+  }, [showMetadata, metaPrefLoaded]);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [aiInstruction, setAiInstruction] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+  const [loadingQuickStart, setLoadingQuickStart] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [parseOk, setParseOk] = useState<boolean | null>(null);
   const [parseMessage, setParseMessage] = useState<string>('');
@@ -434,6 +442,18 @@ function HomeClientInternal() {
     return () => window.removeEventListener('new-plan', handler);
   }, []);
 
+  // Force dark theme any time the user is unauthenticated (must run before any conditional returns to satisfy hook rules)
+  useEffect(() => {
+    if (!session) {
+      try {
+        setTheme('dark');
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch { /* swallow */ }
+    }
+  }, [session, setTheme]);
+
   // Show sign-in prompt if not authenticated
   if (status === 'loading') {
     return (
@@ -446,7 +466,6 @@ function HomeClientInternal() {
                 <div className="absolute -inset-6 animate-[spin_6s_linear_infinite] opacity-40 blur-xl rounded-full bg-[conic-gradient(from_0deg,theme(colors.violet.500/.4),transparent_55%,theme(colors.fuchsia.500/.4))]" />
                 <div className="relative">
                   {/* Import lightweight spinner */}
-                  {/* eslint-disable-next-line @typescript-eslint/no-var-requires */}
                   {(() => { const Spinner = require('@/components/ui/spinner').Spinner; return <Spinner size="lg" label="Loading session" />; })()}
                 </div>
               </div>
@@ -460,7 +479,7 @@ function HomeClientInternal() {
 
   if (!session) {
     return (
-      <div className="h-screen flex flex-col overflow-hidden relative" data-page>
+      <div className="h-screen flex flex-col overflow-hidden relative dark" data-page>
         {/* Animated artistic background */}
         <div className="absolute inset-0 -z-10 pointer-events-none select-none">
           <DarkVeil
@@ -490,7 +509,7 @@ function HomeClientInternal() {
   }
   if (currentStep === 'input') {
     return (
-      <div className="h-screen flex overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.12),transparent_55%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.15),transparent_55%)]" data-page>
+      <div className="h-screen flex overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.12),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.1),transparent_55%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.22),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.18),transparent_55%)]" data-page>
         <Sidebar
           onSelectPlan={handleSelectPlan}
           isCollapsed={sidebarCollapsed}
@@ -498,28 +517,29 @@ function HomeClientInternal() {
         />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <TopNav />
-          <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,black,transparent)] opacity-60" style={{ background: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.04)_0,rgba(255,255,255,0.04)_2px,transparent_2px,transparent_6px)' }} />
-          <div className="mx-auto w-full max-w-6xl px-4 py-10 app-scroll flex-1 relative">
-            <div className="max-w-5xl mx-auto">
-              <div className="mb-8 text-center space-y-4">
-                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-purple-600">Start Your Project Planning</h1>
-                {/* <p className="text-sm md:text-base text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">Craft a production-ready project plan with AI-supported analysis. Provide context and we&apos;ll generate structured phases, tasks & architecture considerations.</p> */}
+          {/* Decorative grid overlay */}
+          <div className="pointer-events-none absolute inset-0 opacity-[0.12] [mask-image:linear-gradient(to_bottom,black,75%,transparent)]" style={{ background: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.25)_0,rgba(255,255,255,0.25)_1px,transparent_1px,transparent_7px)' }} />
+          <div className="relative flex-1 flex flex-col">
+            <div className="w-full px-6 md:px-10 pt-10 pb-4">
+              <div className="max-w-7xl mx-auto">
+                <h1 className="text-4xl md:text-5xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-purple-500 drop-shadow-sm">Start Your Project Planning</h1>
+                <p className="mt-4 max-w-2xl text-sm md:text-base text-neutral-600 dark:text-neutral-400 leading-relaxed">Craft a production-ready, phased project plan with AI-supported analysis. Provide context and we&apos;ll generate architecture considerations, tasks & metrics. Iterate anytime.</p>
               </div>
-              <div className="relative">
-                {/* Subtle outer highlight ring */}
-                <div className="pointer-events-none absolute inset-0 rounded-2xl before:absolute before:inset-0 before:rounded-2xl before:[background:linear-gradient(140deg,rgba(255,255,255,0.55),rgba(255,255,255,0)_40%)] dark:before:[background:linear-gradient(140deg,rgba(255,255,255,0.08),rgba(255,255,255,0)_45%)] after:absolute after:inset-0 after:rounded-2xl after:border after:border-white/50 dark:after:border-white/10 after:[mask:linear-gradient(180deg,white,transparent)]" />
-                <div className="glass rounded-2xl p-6 md:p-10 relative shadow-[0_0_0_1px_rgba(255,255,255,0.3),0_4px_25px_-4px_rgba(0,0,0,0.15)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_4px_30px_-6px_rgba(0,0,0,0.6)] overflow-hidden">
-                  {/* Gradient edge accent */}
-                  <div className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-70 [background:linear-gradient(120deg,rgba(99,102,241,0.35),rgba(236,72,153,0.35),transparent_70%)] mix-blend-overlay" />
-                  {/* Soft inner light */}
-                  <div className="pointer-events-none absolute inset-0 rounded-[inherit] [mask:radial-gradient(circle_at_30%_25%,rgba(0,0,0,0.55),transparent_70%)] bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.7),transparent_55%)] dark:bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.08),transparent_65%)]" />
-                  {/* Noise overlay */}
-                  <div className="noise pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.15] dark:opacity-[0.25] mix-blend-soft-light" />
-                  <div className="relative">
+            </div>
+            {/* Form region */}
+            <div className="flex-1 relative overflow-hidden">
+              <div className="absolute inset-0 overflow-y-auto app-scroll px-6 md:px-10 pb-24">
+                <div className="max-w-7xl mx-auto">
+                  {/* Lightweight container for form */}
+                  <div className="relative rounded-xl border border-white/20 dark:border-white/10 bg-white/60 dark:bg-neutral-900/40 backdrop-blur-md supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/40 shadow-[0_4px_30px_-8px_rgba(0,0,0,0.3)] p-6 md:p-8">
                     <ProjectInputForm onSubmit={handleProjectSubmit} />
+                    {/* Soft gradient accents */}
+                    <div className="pointer-events-none absolute -inset-px rounded-[inherit] [background:linear-gradient(120deg,rgba(99,102,241,0.25),rgba(236,72,153,0.25),transparent_70%)] opacity-60 mix-blend-overlay" />
                   </div>
                 </div>
               </div>
+              {/* Sticky footer actions hint */}
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-white/80 dark:from-neutral-950/80 to-transparent" />
             </div>
           </div>
         </div>
@@ -593,7 +613,12 @@ function HomeClientInternal() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setShowMetadata(s => !s)}
+                onClick={() => {
+                  setShowMetadata(s => {
+                    const next = !s; try { localStorage.setItem('showPlanMetadata', String(next)); } catch { }
+                    return next;
+                  });
+                }}
                 className="gap-1"
               >
                 {showMetadata ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -614,13 +639,32 @@ function HomeClientInternal() {
         <div className="px-6 pt-8 pb-24 w-full max-w-[100rem] mx-auto space-y-12 flex-1 app-scroll">
           {projectPlan && (
             <>
-              {showMetadata && (
+              {metaPrefLoaded && showMetadata && (
                 <div className="space-y-6">
                   <PlanOverviewHero
                     plan={projectPlan}
                     isOwner={isOwner}
                     collaboratorRole={collaboratorRole}
                     collaborators={collaborators}
+                    techStackSaving={savingTechStack}
+                    onUpdateTechStack={async (stack) => {
+                      try {
+                        setSavingTechStack(true);
+                        if (currentPlanId) {
+                          const res = await fetch(`/api/plans/${currentPlanId}/overview`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ techStack: stack })
+                          });
+                          if (!res.ok) throw new Error(await res.text());
+                        }
+                        setProjectPlan(p => p ? ({ ...p, overview: { ...p.overview, techStack: stack } }) : p);
+                      } catch (e: any) {
+                        alert('Update tech stack failed: ' + e.message);
+                      } finally {
+                        setSavingTechStack(false);
+                      }
+                    }}
                   />
                   <PlanMetrics plan={projectPlan} />
                 </div>
@@ -653,6 +697,27 @@ function HomeClientInternal() {
                       planning={projectPlan.waterfallPhases.planning}
                       analysis={projectPlan.waterfallPhases.analysis}
                       design={projectPlan.waterfallPhases.design}
+                      quickStart={projectPlan.waterfallPhases.quickStart}
+                      loadingQuickStart={loadingQuickStart}
+                      onGenerateQuickStart={async (pm) => {
+                        if (loadingQuickStart) return;
+                        try {
+                          setLoadingQuickStart(true);
+                          const res = await fetch('/api/quick-start-phase', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ planId: currentPlanId, fullPlan: currentPlanId ? undefined : projectPlan, packageManager: pm, force: !!projectPlan.waterfallPhases.quickStart })
+                          });
+                          if (!res.ok) throw new Error(await res.text());
+                          const data = await res.json();
+                          const qs = data.quickStart;
+                          setProjectPlan(p => p ? ({ ...p, waterfallPhases: { ...p.waterfallPhases, quickStart: qs } }) : p);
+                        } catch (e: any) {
+                          alert('Quick Start generation failed: ' + e.message);
+                        } finally {
+                          setLoadingQuickStart(false);
+                        }
+                      }}
                     />
                   </TabsContent>
                 </Tabs>

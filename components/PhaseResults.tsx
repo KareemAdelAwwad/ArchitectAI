@@ -1,19 +1,54 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Clock, Users, Target, AlertTriangle, FileText, Database, Code, Palette } from 'lucide-react';
+import { Clock, Users, Target, AlertTriangle, FileText, Database, Code, Palette, Download } from 'lucide-react';
+import { CodeBlock } from '@/components/ui/code-block';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
-import { PlanningPhase, AnalysisPhase, DesignPhase } from '@/types/project';
+import { PlanningPhase, AnalysisPhase, DesignPhase, QuickStartPhase } from '@/types/project';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PhaseResultsProps {
   planning: PlanningPhase;
   analysis: AnalysisPhase;
   design: DesignPhase;
+  quickStart?: QuickStartPhase | null;
+  loadingQuickStart?: boolean;
+  onGenerateQuickStart?: (pm: 'npm' | 'yarn' | 'pnpm' | 'bun') => void;
 }
 
-export default function PhaseResults({ planning, analysis, design }: PhaseResultsProps) {
+export default function PhaseResults({ planning, analysis, design, quickStart, loadingQuickStart, onGenerateQuickStart }: PhaseResultsProps) {
+  const [pmChoice, setPmChoice] = React.useState<'npm' | 'yarn' | 'pnpm' | 'bun'>('npm');
+
+  const formatRelative = React.useCallback((iso: string | undefined) => {
+    if (!iso) return '—';
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return '—';
+    const diff = Date.now() - date.getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h`;
+    const d = Math.floor(h / 24);
+    return `${d}d`;
+  }, []);
+
+  const downloadTextFile = (filename: string, content: string) => {
+    try {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch { /* noop */ }
+  };
   const renderListSection = (title: string, items: any, icon: React.ReactNode, color: string) => {
     const safeItems: string[] = Array.isArray(items)
       ? items
@@ -180,7 +215,7 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
       </div>
 
       <Tabs defaultValue="planning" className="space-y-6">
-        <TabsList className="relative grid grid-cols-3 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
+        <TabsList className="relative grid grid-cols-4 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
           <TabsTrigger
             value="planning"
             className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
@@ -202,6 +237,14 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
             className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
           >
             <span className="relative z-10 inline-flex items-center gap-2"><Palette className="w-4 h-4" />Design</span>
+            <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+            <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
+          </TabsTrigger>
+          <TabsTrigger
+            value="quickStart"
+            className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
+          >
+            <span className="relative z-10 inline-flex items-center gap-2"><Code className="w-4 h-4" />Quick Start</span>
             <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
             <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
           </TabsTrigger>
@@ -440,6 +483,205 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                     {renderApiEndpoints(design.apiEndpoints)}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        <TabsContent value="quickStart">
+          <div className="grid gap-6">
+            <Card className="overflow-hidden">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 opacity-80" />
+                <CardHeader className="relative z-10 text-white">
+                  <CardTitle className="flex items-center gap-2 text-white">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/10 ring-1 ring-white/30 backdrop-blur">
+                      <Code className="w-5 h-5" />
+                    </span>
+                    Quick Start Phase
+                    {quickStart && (
+                      <Badge variant="secondary" className="bg-white/15 text-white hover:bg-white/25">Generated</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription className="text-indigo-100">
+                    Installation & environment bootstrap (generated on-demand)
+                  </CardDescription>
+                </CardHeader>
+              </div>
+              <CardContent className="pt-6">
+                {!quickStart && !loadingQuickStart && (
+                  <div className="flex flex-col gap-8">
+                    <div className="rounded-xl border border-dashed border-indigo-300/50 dark:border-indigo-500/40 p-6 bg-gradient-to-br from-indigo-50/80 via-white to-white dark:from-indigo-950/30 dark:via-neutral-900 dark:to-neutral-900">
+                      <div className="space-y-4">
+                        <p className="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                          Generate a tailored Quick Start including install commands, refined Copilot context, scripts, and an .env example to bootstrap your project in minutes.
+                        </p>
+                        <div className="flex flex-col gap-3">
+                          <span className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Select Package Manager</span>
+                          <ToggleGroup type="single" value={pmChoice} onValueChange={v => v && setPmChoice(v as any)} className="flex flex-wrap">
+                            {(['npm', 'yarn', 'pnpm', 'bun'] as const).map(pm => (
+                              <ToggleGroupItem key={pm} value={pm} aria-label={pm} className="data-[state=on]:bg-indigo-600 data-[state=on]:text-white px-4 py-2 rounded-md text-xs font-semibold">
+                                {pm.toUpperCase()}
+                              </ToggleGroupItem>
+                            ))}
+                          </ToggleGroup>
+                        </div>
+                        <div>
+                          <Button onClick={() => onGenerateQuickStart?.(pmChoice)} className="relative inline-flex gap-2">
+                            <Code className="w-4 h-4" /> Generate Quick Start
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {loadingQuickStart && !quickStart && (
+                  <div className="space-y-6 animate-in fade-in">
+                    <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-300">
+                      <div className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+                      <span>Generating Quick Start assets...</span>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-32 rounded-lg bg-gradient-to-br from-neutral-200/70 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 relative overflow-hidden">
+                          <div className="absolute inset-0 animate-[shimmer_2.2s_infinite] bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.4),transparent)] bg-[length:200%_100%]" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {quickStart && (
+                  <div className="space-y-12">
+                    {loadingQuickStart ? (
+                      <div className="space-y-10 animate-in fade-in">
+                        <div className="flex items-center gap-3">
+                          <div className="h-3 w-3 rounded-full bg-indigo-500 animate-ping" />
+                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">Regenerating Quick Start (est. 2–5 minutes)...</p>
+                        </div>
+                        <div className="grid lg:grid-cols-2 gap-10">
+                          <div className="space-y-8">
+                            <section className="space-y-3">
+                              <Skeleton className="h-5 w-64" />
+                              <Skeleton className="h-28 w-full" />
+                            </section>
+                            <section className="space-y-3">
+                              <Skeleton className="h-5 w-56" />
+                              <Skeleton className="h-40 w-full" />
+                            </section>
+                            <section className="space-y-3">
+                              <Skeleton className="h-5 w-40" />
+                              <Skeleton className="h-32 w-full" />
+                            </section>
+                          </div>
+                          <div className="space-y-8">
+                            <section className="space-y-3">
+                              <Skeleton className="h-5 w-72" />
+                              <div className="space-y-2">
+                                <Skeleton className="h-3 w-full" />
+                                <Skeleton className="h-3 w-[92%]" />
+                                <Skeleton className="h-3 w-[88%]" />
+                                <Skeleton className="h-3 w-[95%]" />
+                                <Skeleton className="h-3 w-[70%]" />
+                              </div>
+                            </section>
+                            <section className="space-y-3">
+                              <Skeleton className="h-4 w-32" />
+                              <Skeleton className="h-3 w-44" />
+                            </section>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-neutral-500 dark:text-neutral-400">This process usually finishes in 2–5 minutes. You can navigate elsewhere meanwhile.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-3 text-[11px]">
+                            <Select value={pmChoice} onValueChange={v => setPmChoice(v as any)}>
+                              <SelectTrigger className="w-[120px] h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="npm">npm</SelectItem>
+                                <SelectItem value="yarn">yarn</SelectItem>
+                                <SelectItem value="pnpm">pnpm</SelectItem>
+                                <SelectItem value="bun">bun</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button size="sm" disabled={loadingQuickStart} onClick={() => onGenerateQuickStart?.(pmChoice)} className="h-8 px-3 text-[11px]">
+                              Regenerate
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-neutral-500 dark:text-neutral-400">Full regeneration typically takes 2–5 minutes.</p>
+                          <div className="flex flex-wrap gap-2 ml-auto">
+                            <Button variant="secondary" size="sm" onClick={() => downloadTextFile(quickStart.copilotInstructions.filename, quickStart.copilotInstructions.content)} className="h-8 gap-1 text-[11px]">
+                              <Download className="w-4 h-4" /> {quickStart.copilotInstructions.filename}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => downloadTextFile('.env.example', quickStart.envExample.join('\n'))} className="h-8 gap-1 text-[11px]">
+                              <Download className="w-4 h-4" /> .env.example
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid lg:grid-cols-2 gap-10">
+                          <div className="space-y-8">
+                            <section className="space-y-3">
+                              <header className="flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100"><Code className="w-4 h-4" /> Install Packages ({quickStart.packageManager})</h4>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(quickStart.installCommands.join('\n'))}
+                                  className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >Copy</button>
+                              </header>
+                              <CodeBlock code={quickStart.installCommands.join('\n')} language="bash" className="bg-neutral-900/90" />
+                            </section>
+                            <section className="space-y-3">
+                              <header className="flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">package.json Scripts</h4>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(JSON.stringify({ scripts: quickStart.packageScripts }, null, 2))}
+                                  className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >Copy</button>
+                              </header>
+                              <CodeBlock code={JSON.stringify({ scripts: quickStart.packageScripts }, null, 2)} language="json" className="bg-neutral-900/90" />
+                            </section>
+                            <section className="space-y-3">
+                              <header className="flex items-center gap-2">
+                                <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">.env.example</h4>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(quickStart.envExample.join('\n'))}
+                                  className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >Copy</button>
+                              </header>
+                              <CodeBlock code={quickStart.envExample.join('\n')} language="bash" className="bg-neutral-900/90" />
+                            </section>
+                          </div>
+                          <div className="space-y-8">
+                            <section className="space-y-3">
+                              <header className="flex items-center justify-between gap-2">
+                                <h4 className="font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">{quickStart.copilotInstructions.filename}</h4>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(quickStart.copilotInstructions.content)}
+                                  className="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                >Copy</button>
+                              </header>
+                              <div className="border rounded-lg bg-white/80 dark:bg-neutral-900/70 p-4 max-h-[480px] overflow-auto text-[11px] whitespace-pre-wrap font-mono leading-relaxed shadow-inner">
+                                {quickStart.copilotInstructions.content}
+                              </div>
+                            </section>
+                            <section className="space-y-2">
+                              <h5 className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Generated</h5>
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-neutral-600 dark:text-neutral-400">
+                                <span className="inline-flex items-center gap-1 rounded-full bg-neutral-200 dark:bg-neutral-800 px-2 py-1 font-medium">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  {formatRelative(quickStart.generatedAt)} ago
+                                </span>
+                                <time dateTime={quickStart.generatedAt} className="font-mono opacity-80">{quickStart.generatedAt ? new Date(quickStart.generatedAt).toLocaleString() : '—'}</time>
+                              </div>
+                            </section>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

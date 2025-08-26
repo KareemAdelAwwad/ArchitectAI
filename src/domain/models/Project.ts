@@ -52,10 +52,30 @@ export interface DesignPhase {
   codingStandards: string[];
 }
 
+// New lazily-generated Quick Start phase (not present until user requests it)
+export interface QuickStartPhase {
+  // Installation commands (ordered) tailored to selected package manager
+  installCommands: string[];
+  // Copilot instructions file metadata & content
+  copilotInstructions: {
+    filename: string; // normally "copilot-instructions.md"
+    content: string;  // markdown content
+  };
+  // Package.json scripts snippet
+  packageScripts: Record<string, string>;
+  // .env.example content lines (each may include an inline comment starting with #)
+  envExample: string[];
+  // Package manager used to generate commands
+  packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun';
+  generatedAt: string; // ISO timestamp
+}
+
 export interface WaterfallPhases {
   planning: PlanningPhase;
   analysis: AnalysisPhase;
   design: DesignPhase;
+  // Optional Quick Start phase (undefined until generated on-demand)
+  quickStart?: QuickStartPhase | null;
 }
 
 export interface ProjectOverview {

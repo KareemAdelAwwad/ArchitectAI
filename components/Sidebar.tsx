@@ -172,9 +172,9 @@ export default function Sidebar({
         >
           {/* Optional gradient edge accent retained */}
           <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-primary/40 to-transparent opacity-60" />
-          <div className="p-4 border-b border-gray-200 dark:border-neutral-800 flex items-center justify-between">
+          <div className="p-2.5 border-b border-gray-200 dark:border-neutral-800 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-neutral-100">Saved Plans</h2>
-            <Button variant="ghost" size="sm" onClick={onToggleCollapse} className="p-2">
+            <Button variant="ghost" size="sm" onClick={onToggleCollapse} className="p-3">
               {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
             </Button>
           </div>

@@ -11,10 +11,32 @@ export function ScreenshotsShowcase() {
   useEffect(() => setMounted(true), []);
   const effective = (theme === 'system' ? systemTheme : theme) || 'light';
   const mode = effective === 'dark' ? 'dark' : 'light';
+  // Updated screenshots set – ensure files exist under /public/screenshots/{light|dark}/
   const shots: Array<{ key: string; title: string; caption: string; file: string }> = [
-    { key: 'tasks', title: 'Tasks Breakdown', caption: 'Auto-generated, categorized engineering tasks with estimates.', file: 'tasks.png' },
-    { key: 'planning', title: 'Planning Scope', caption: 'Clear scope, objectives, stakeholders & risks.', file: 'planning.png' },
-    { key: 'analysis', title: 'Analysis & Requirements', caption: 'Functional / non-functional requirements & user stories.', file: 'analysis.png' },
+    {
+      key: 'quick-start',
+      title: 'Quick Start Phase',
+      caption: 'Bootstrapped initial code scaffolding & first implementation sprint tasks.',
+      file: 'quick-start.png'
+    },
+    {
+      key: 'planning',
+      title: 'Project Planning',
+      caption: 'Scope, objectives, stakeholders, resources & risk snapshot.',
+      file: 'planning.png'
+    },
+    {
+      key: 'design',
+      title: 'System Design',
+      caption: 'Architecture, database schema & API endpoint outline for the solution.',
+      file: 'design.png'
+    },
+    {
+      key: 'tasks',
+      title: 'Task Breakdown',
+      caption: 'Categorized engineering tasks with estimates & dependency mapping.',
+      file: 'tasks.png'
+    }
   ];
   const [active, setActive] = useState<null | typeof shots[number]>(null);
   const close = useCallback(() => setActive(null), []);
@@ -45,7 +67,7 @@ export function ScreenshotsShowcase() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-80px' }}
               transition={{ duration: 0.6 }}
-              className="grid gap-8 md:grid-cols-3"
+              className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4"
             >
               {shots.map((s, i) => (
                 <motion.figure
@@ -73,7 +95,7 @@ export function ScreenshotsShowcase() {
                       alt={`${s.title} screenshot`}
                       width={900}
                       height={620}
-                      sizes="(max-width:768px) 100vw, (max-width:1200px) 33vw, 400px"
+                      sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 25vw"
                       className="w-full h-auto select-none transition-transform duration-300 group-hover:scale-[1.02]"
                       priority={i === 0}
                       loading={i === 0 ? 'eager' : 'lazy'}
