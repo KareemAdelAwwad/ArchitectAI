@@ -8,6 +8,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { FileText, Trash2, Calendar, Clock, ChevronLeft, ChevronRight, Plus, Users } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from '@/components/ui/alert-dialog';
 import InviteCollaboratorsDialog from '@/components/InviteCollaboratorsDialog';
 import { ProjectPlan } from '@/types/project';
 
@@ -191,14 +202,36 @@ export default function Sidebar({
                               </Button>
                             }
                           />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                            onClick={(e) => { e.stopPropagation(); deletePlan(savedPlan._id); }}
-                          >
-                            <Trash2 className="w-3 h-3 text-red-500" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                                onClick={(e) => { e.stopPropagation(); }}
+                                title="Delete plan"
+                              >
+                                <Trash2 className="w-3 h-3 text-red-500" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="max-w-sm">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. The plan and collaborator access will be permanently removed.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                                  onClick={(e) => { e.stopPropagation(); deletePlan(savedPlan._id); }}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       ) : savedPlan.collaboratorRole ? (
                         <Button
