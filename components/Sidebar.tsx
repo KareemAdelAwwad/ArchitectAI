@@ -51,6 +51,7 @@ export default function Sidebar({
   const { data: session } = useSession();
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'leave'; planId: string } | null>(null);
 
   useEffect(() => {
     if (session?.user) {
@@ -202,68 +203,26 @@ export default function Sidebar({
                               </Button>
                             }
                           />
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                                onClick={(e) => { e.stopPropagation(); }}
-                                title="Delete plan"
-                              >
-                                <Trash2 className="w-3 h-3 text-red-500" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="max-w-sm">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete this plan?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. The plan and collaborator access will be permanently removed.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white dark:text-white dark:bg-red-600 dark:hover:bg-red-500"
-                                  onClick={(e) => { e.stopPropagation(); deletePlan(savedPlan._id); }}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                            onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'delete', planId: savedPlan._id }); }}
+                            title="Delete plan"
+                          >
+                            <Trash2 className="w-3 h-3 text-red-500" />
+                          </Button>
                         </div>
                       ) : savedPlan.collaboratorRole ? (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
-                              onClick={(e) => { e.stopPropagation(); }}
-                              title="Leave plan"
-                            >
-                              Leave
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="max-w-sm">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Leave this plan?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                You will lose access unless re-invited by the owner. Your previous contributions remain.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white dark:text-white dark:bg-red-600 dark:hover:bg-red-500"
-                                onClick={(e) => { e.stopPropagation(); leavePlan(savedPlan._id); }}
-                              >
-                                Confirm Leave
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 h-auto"
+                          onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: 'leave', planId: savedPlan._id }); }}
+                          title="Leave plan"
+                        >
+                          Leave
+                        </Button>
                       ) : null}
                     </div>
                   </CardHeader>
@@ -308,6 +267,36 @@ export default function Sidebar({
           </div>
         </ScrollArea>
       </div>
+      <AlertDialog open={!!confirmAction} onOpenChange={(o) => { if (!o) setConfirmAction(null); }}>
+        {confirmAction && (
+          <AlertDialogContent className="max-w-sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {confirmAction.type === 'delete' ? 'Delete this plan?' : 'Leave this plan?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmAction.type === 'delete'
+                  ? 'This action cannot be undone. The plan and collaborator access will be permanently removed.'
+                  : 'You will lose access unless re-invited by the owner. Your previous contributions remain.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setConfirmAction(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600 text-white dark:text-white dark:bg-red-600 dark:hover:bg-red-500"
+                onClick={() => {
+                  if (!confirmAction) return;
+                  if (confirmAction.type === 'delete') deletePlan(confirmAction.planId);
+                  else leavePlan(confirmAction.planId);
+                  setConfirmAction(null);
+                }}
+              >
+                {confirmAction.type === 'delete' ? 'Delete' : 'Confirm Leave'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
     </>
   );
 }
