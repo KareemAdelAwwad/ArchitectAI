@@ -20,9 +20,17 @@ interface PhaseResultsProps {
   quickStart?: QuickStartPhase | null;
   loadingQuickStart?: boolean;
   onGenerateQuickStart?: (pm: 'npm' | 'yarn' | 'pnpm' | 'bun') => void;
+  initialPhase?: 'planning' | 'analysis' | 'design' | 'quickStart';
+  onPhaseChange?: (phase: 'planning' | 'analysis' | 'design' | 'quickStart') => void;
 }
 
-export default function PhaseResults({ planning, analysis, design, quickStart, loadingQuickStart, onGenerateQuickStart }: PhaseResultsProps) {
+export default function PhaseResults({ planning, analysis, design, quickStart, loadingQuickStart, onGenerateQuickStart, initialPhase = 'planning', onPhaseChange }: PhaseResultsProps) {
+  const [activePhase, setActivePhase] = React.useState<'planning' | 'analysis' | 'design' | 'quickStart'>(initialPhase);
+  React.useEffect(() => {
+    // Only sync when parent-provided initialPhase actually changes
+    if (initialPhase && initialPhase !== activePhase) setActivePhase(initialPhase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPhase]);
   const [pmChoice, setPmChoice] = React.useState<'npm' | 'yarn' | 'pnpm' | 'bun'>('npm');
 
   // Unified skeleton for Quick Start generation & regeneration
@@ -259,7 +267,7 @@ export default function PhaseResults({ planning, analysis, design, quickStart, l
         <p className="text-gray-600 dark:text-neutral-400">Comprehensive analysis across all three phases</p>
       </div>
 
-      <Tabs defaultValue="planning" className="space-y-6">
+      <Tabs value={activePhase} onValueChange={(v: any) => { setActivePhase(v); onPhaseChange?.(v); }} className="space-y-6">
         <TabsList className="relative grid grid-cols-4 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
           <TabsTrigger
             value="planning"

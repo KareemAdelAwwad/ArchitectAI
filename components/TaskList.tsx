@@ -14,6 +14,8 @@ interface TaskListProps {
   tasks: TaskCollection;
   onToggleTask?: (taskId: string, completed: boolean) => void;
   readOnly?: boolean;
+  initialCategory?: string; // controlled initial tab category via URL (all|frontend|backend|integration|deployment)
+  onCategoryChange?: (category: string) => void; // notify parent of category tab change for URL sync
 }
 
 const getComplexityColor = (complexity: string) => {
@@ -44,7 +46,7 @@ const getCategoryIcon = (category: string) => {
   }
 };
 
-export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProps) {
+export default function TaskList({ tasks, onToggleTask, readOnly, initialCategory, onCategoryChange }: TaskListProps) {
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [filterComplexity, setFilterComplexity] = useState<string>("all");
   const [deletedTasks, setDeletedTasks] = useState<Set<string>>(new Set());
@@ -244,6 +246,16 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
   };
   const cancelEdit = () => { setEditingTaskId(null); setEditDraft(null); };
 
+  // Persist / control active task category tab (default to 'all')
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory || 'all');
+  useEffect(() => {
+    // Sync from parent only when initialCategory prop changes
+    if (initialCategory && initialCategory !== activeCategory) {
+      setActiveCategory(initialCategory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCategory]);
+
   return (
     <div className="space-y-6 relative">
       {/* Progress Overview */}
@@ -308,7 +320,7 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
       </div>
 
       {/* Task Categories */}
-      <Tabs defaultValue="all" className="space-y-6">
+      <Tabs value={activeCategory} onValueChange={(v) => { setActiveCategory(v); onCategoryChange?.(v); }} className="space-y-6">
         <TabsList className="relative grid w-full grid-cols-5 rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.55),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.07),transparent_60%)] before:pointer-events-none">
           {[
             { key: 'all', label: 'All Tasks' },

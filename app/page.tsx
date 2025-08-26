@@ -20,7 +20,7 @@ import { Spinner } from '@/components/ui/spinner';
 import OrbBackground from '@/components/ui/orb-background';
 import AuthButton from '@/components/AuthButton';
 import Sidebar from '@/components/Sidebar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import ProjectInputForm from '@/components/ProjectInputForm';
 import TaskList from '@/components/TaskList';
 import PhaseResults from '@/components/PhaseResults';
@@ -418,6 +418,53 @@ function HomeClientInternal() {
   };
 
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Robust query parsing (supports malformed '?tab=phases?cat=design')
+  const rawTabParam = searchParams?.get('tab') || undefined;
+  let embeddedCat: string | undefined;
+  let tabBase = rawTabParam;
+  if (rawTabParam && rawTabParam.includes('?cat=')) {
+    const [main, rest] = rawTabParam.split('?cat=');
+    tabBase = main;
+    embeddedCat = rest.split('&')[0];
+  }
+  const catParam = searchParams?.get('cat') || embeddedCat;
+  // Plan view tab state (tasks | phases)
+  const initialPlanTab: 'tasks' | 'phases' = tabBase === 'phases' ? 'phases' : 'tasks';
+  const [planTab, setPlanTab] = useState<'tasks' | 'phases'>(initialPlanTab);
+  // Category parameter shared for tasks and phases
+  const initialTaskCategory = (() => {
+    const c = catParam;
+    if (initialPlanTab === 'tasks' && c && ['all', 'frontend', 'backend', 'integration', 'deployment'].includes(c)) return c;
+    return 'all';
+  })();
+  const initialPhaseCategory = (() => {
+    const c = catParam;
+    if (initialPlanTab === 'phases' && c && ['planning', 'analysis', 'design', 'quickStart'].includes(c)) return c as 'planning' | 'analysis' | 'design' | 'quickStart';
+    return 'planning';
+  })();
+  const [taskCategory, setTaskCategory] = useState<string>(initialTaskCategory);
+  const [phaseCategory, setPhaseCategory] = useState<'planning' | 'analysis' | 'design' | 'quickStart'>(initialPhaseCategory);
+
+  // Update URL when planTab or category changes
+  useEffect(() => {
+    if (!currentPlanId) return; // Only persist when a plan is selected
+    const sp = new URLSearchParams(window.location.search);
+    sp.set('tab', planTab);
+    if (planTab === 'tasks') {
+      sp.set('cat', taskCategory);
+    } else if (planTab === 'phases') {
+      sp.set('cat', phaseCategory);
+    }
+    // Cleanup any accidental '?cat=' fragment inside tab value (legacy malformed links)
+    if (sp.get('tab')?.includes('?cat=')) {
+      const t = sp.get('tab')!;
+      const [main] = t.split('?cat=');
+      sp.set('tab', main);
+    }
+    const newUrl = `/plans/${currentPlanId}?${sp.toString()}`;
+    window.history.replaceState(window.history.state, '', newUrl);
+  }, [planTab, taskCategory, phaseCategory, currentPlanId]);
   const canEdit = isOwner || collaboratorRole === 'editor';
   // When navigating back to root '/', treat it as starting a new project (show form)
   useEffect(() => {
@@ -671,7 +718,7 @@ function HomeClientInternal() {
                 </div>
               )}
               <div>
-                <Tabs defaultValue="tasks" className="space-y-6">
+                <Tabs value={planTab} onValueChange={(v: any) => setPlanTab(v)} className="space-y-6">
                   <TabsList className="relative grid grid-cols-2 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
                     <TabsTrigger
                       value="tasks"
@@ -691,7 +738,14 @@ function HomeClientInternal() {
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="tasks" className="space-y-8">
-                    <TaskList key={(currentPlanId || projectPlan.overview.title) + ':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
+                    <TaskList
+                      key={(currentPlanId || projectPlan.overview.title) + ':tasks'}
+                      tasks={projectPlan.tasks}
+                      onToggleTask={handleTaskToggle}
+                      readOnly={!isOwner && collaboratorRole !== 'editor'}
+                      initialCategory={taskCategory}
+                      onCategoryChange={(c) => setTaskCategory(c)}
+                    />
                   </TabsContent>
                   <TabsContent value="phases" className="space-y-6">
                     <PhaseResults
@@ -700,6 +754,8 @@ function HomeClientInternal() {
                       design={projectPlan.waterfallPhases.design}
                       quickStart={projectPlan.waterfallPhases.quickStart}
                       loadingQuickStart={loadingQuickStart}
+                      initialPhase={phaseCategory}
+                      onPhaseChange={(p) => setPhaseCategory(p)}
                       onGenerateQuickStart={async (pm) => {
                         if (loadingQuickStart) return;
                         try {
