@@ -23,7 +23,7 @@ const suggestTechStack = (projectType: string, description: string): string[] =>
       }
       break;
     case 'Full Stack':
-      suggestions.push('Next.js', 'TypeScript', 'Tailwind CSS', 'PostgreSQL', 'Prisma');
+      suggestions.push('Next.js', 'TypeScript', 'Tailwind CSS', 'PostgreSQL', 'Drizzle ORM');
       break;
   }
 
@@ -606,6 +606,10 @@ const generateTasks = (input: ProjectInput): {
 };
 
 export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
+  // Determine small frontend-only scenario similar to AI planner logic
+  const budgetLower = (input.budget || '').toLowerCase();
+  const isMicroLow = /under\s*\$?1k|\b0\b|\bzero\b|micro|low|\b\$?([0-9]{1,3})(?![0-9])/.test(budgetLower);
+  const smallFrontendOnly = input.projectType === 'Frontend' && isMicroLow;
   // Merge user's tech stack with suggestions
   const suggestedTech = suggestTechStack(input.projectType, input.description);
   const finalTechStack = input.techStack.length > 0
@@ -623,19 +627,23 @@ export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
   const planningPhase = generatePlanningPhase(input);
   // Derive structured timeline breakdown from task estimates (fallback when AI not used)
   const sumHours = (arr: any[]) => arr.reduce((s, t) => s + (t.estimatedHours || 0), 0);
-  const tasksTemp = generateTasks(input);
+  let tasksTemp = generateTasks(input);
+  if (smallFrontendOnly) {
+    tasksTemp.integration = [];
+    tasksTemp.deployment = [];
+  }
   const fh = sumHours(tasksTemp.frontend);
   const bh = sumHours(tasksTemp.backend);
   const ih = sumHours(tasksTemp.integration);
   const dh = sumHours(tasksTemp.deployment);
   const hoursToWeeks = (hrs: number) => Math.ceil(hrs / (6 * 5)); // 6 productive hrs * 5 days per week
   const fmtWeeks = (w: number) => `${w} week${w === 1 ? '' : 's'}`;
-  const deploymentLine = dh < 8 ? `${dh || 4} hour${(dh || 4) === 1 ? '' : 's'}` : fmtWeeks(hoursToWeeks(dh));
+  const deploymentLine = dh < 8 ? `${dh} hour${dh === 1 ? '' : 's'}` : fmtWeeks(hoursToWeeks(dh));
   planningPhase.timeline = [
-    `Frontend: ${fmtWeeks(Math.max(1, hoursToWeeks(fh)))}`,
-    `Backend: ${fmtWeeks(Math.max(1, hoursToWeeks(bh)))}`,
-    `Integration: ${fmtWeeks(Math.max(1, hoursToWeeks(ih)))}`,
-    `Deployment: ${deploymentLine}`
+    `Frontend: ${fmtWeeks(hoursToWeeks(fh))}`,
+    `Backend: ${fmtWeeks(hoursToWeeks(bh))}`,
+    `Integration: ${smallFrontendOnly ? '0 weeks' : fmtWeeks(hoursToWeeks(ih))}`,
+    `Deployment: ${smallFrontendOnly ? '0 hours' : deploymentLine}`
   ].join('\n');
 
   const waterfallPhases = {

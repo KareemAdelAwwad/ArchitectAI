@@ -2,7 +2,7 @@
 
 ## 1. Product Name
 
-ArchitectAI – AI-Powered Project Planning Assistant
+Architect AI – AI-Powered Project Planning Assistant
 
 ## 2. Elevator Pitch
 
@@ -10,7 +10,7 @@ An authenticated Next.js web app that turns a raw software project idea into a s
 
 ## 3. Problem Statement
 
-Early-stage project teams and solo builders struggle to translate loosely formed ideas into clear, actionable specifications. This leads to scope creep, misaligned expectations, and rework. Existing tools either require heavy manual modeling or produce unstructured AI text. ArchitectAI bridges the gap by generating standardized, structured planning artifacts rapidly and storing them for ongoing reference.
+Early-stage project teams and solo builders struggle to translate loosely formed ideas into clear, actionable specifications. This leads to scope creep, misaligned expectations, and rework. Existing tools either require heavy manual modeling or produce unstructured AI text. Architect AI bridges the gap by generating standardized, structured planning artifacts rapidly and storing them for ongoing reference.
 
 ## 4. Goals & Success Metrics
 

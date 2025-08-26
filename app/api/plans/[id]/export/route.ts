@@ -15,6 +15,7 @@ export async function GET(
   try {
     const search = req.nextUrl.searchParams;
     const raw = search.get('raw') === '1' || search.get('inline') === '1';
+    const format = (search.get('format') || 'pdf').toLowerCase();
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -29,6 +30,21 @@ export async function GET(
     }
 
     const { plan } = stored;
+
+    // JSON export pathway (portable plan data)
+    if (format === 'json') {
+      // Strip any internal fields (currently none besides tasks etc.)
+      const jsonBytes = new TextEncoder().encode(JSON.stringify({ plan, exportedAt: new Date().toISOString(), version: 1 }, null, 2));
+      return new NextResponse(jsonBytes as any, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="plan-${params.id}.json"`,
+          'Content-Length': String(jsonBytes.byteLength),
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

@@ -4,7 +4,39 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Model name from env or sensible default
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
+// Lightweight heuristic budget tier classifier to guide the model (string may be free‑form)
+function deriveBudgetTier(budget: string | undefined): {
+  tier: 'micro' | 'low' | 'mid' | 'standard' | 'enterprise';
+  label: string;
+} {
+  if (!budget) return { tier: 'standard', label: 'Standard (assume ~$10K-$25K)' };
+  const b = budget.toLowerCase();
+  // Numeric extraction
+  const numMatch = b.match(/\$?\s*(\d+[,.]?\d*)\s*k?/);
+  let amount = 0;
+  if (numMatch) {
+    const raw = numMatch[1].replace(/,/g, '');
+    amount = parseFloat(raw);
+    if (/k/.test(b)) amount *= 1000;
+  }
+  if (b.includes('25') && b.includes('+')) return { tier: 'enterprise', label: budget };
+  if (amount === 0 || /(^|\b)(0|zero)/.test(b) || b.includes('$0')) return { tier: 'micro', label: budget };
+  if (b.includes('under') && b.includes('1k')) return { tier: 'micro', label: budget };
+  if (amount > 0 && amount < 1000) return { tier: 'micro', label: budget };
+  if (amount >= 1000 && amount < 5000) return { tier: 'low', label: budget };
+  if (amount >= 5000 && amount < 10000) return { tier: 'mid', label: budget };
+  if (amount >= 10000 && amount < 25000) return { tier: 'standard', label: budget };
+  if (amount >= 25000) return { tier: 'enterprise', label: budget };
+  // Fallback textual clues
+  if (b.includes('enterprise') || b.includes('25k')) return { tier: 'enterprise', label: budget };
+  if (b.includes('mid')) return { tier: 'mid', label: budget };
+  if (b.includes('low')) return { tier: 'low', label: budget };
+  return { tier: 'standard', label: budget };
+}
+
 function buildPrompt(input: ProjectInput) {
+  const budgetInfo = deriveBudgetTier(input.budget);
+  const smallProject = (input.projectType === 'Frontend') && (budgetInfo.tier === 'micro' || budgetInfo.tier === 'low');
   /**
    * We purposely keep the structure identical to existing TS interfaces to avoid runtime parse breaks.
    * We enrich instructions for deeper, professional, real‑world Waterfall content while keeping JSON lean.
@@ -18,12 +50,16 @@ OUTPUT RULES (CRITICAL):
 1. JSON ONLY. No prose outside JSON. Do not prefix/suffix.
 2. Use concise globally-unique task ids: t1, t2, t3 ... sequential with no gaps. All categories share the id sequence.
 3. Dependencies: only reference ids that appear EARLIER (acyclic). Keep dependencies array short (<=4) and relevant.
-4. Task volume: Provide a COMPREHENSIVE granular breakdown (NO arbitrary cap). Minimum counts: Full Stack >= 60 tasks; Frontend or Backend only >= 35. Only add genuinely valuable decomposition—avoid trivial duplicates.
+4. Task volume MUST scale with budget tier (avoid overkill for tiny budgets, stay realistic for larger). Budget tier derived: ${budgetInfo.tier} (${budgetInfo.label}). Use these guidance ranges (can be slightly adjusted for domain fit). If SMALL FRONTEND-ONLY (criteria: projectType=Frontend AND budget tier micro/low) you MUST drastically simplify and MAY omit entire integration & deployment categories (set them to []):
+  - Full Stack: micro 20–30, low 30–40, mid 45–55, standard 60–75, enterprise 75–110 tasks total.
+  - Frontend OR Backend only: micro 12–18, low 18–25, mid 26–34, standard 35–45, enterprise 46–65 tasks.
+  Provide COMPREHENSIVE but NON-TRIVIAL tasks; if budget is micro/low MERGE or OMITS non-essential optimization/refinement tasks while keeping a coherent MVP. NEVER exceed upper bound by more than 5%.
 5. Complexity ↔ hours: Simple <5h, Medium 5–15h, Complex 16–40h (never 0). Distribute roughly: 50–60% Simple, 30–40% Medium, 10–15% Complex (adjust if domain demands more complexity).
 6. Titles: action-oriented, specific (e.g., "Implement role-based auth middleware" not "Auth").
 7. Descriptions: 1 concise sentence (<= 180 chars) describing purpose & business/technical rationale. Avoid line breaks.
 8. Tech stack: merge provided stack + inferred realistic stack; dedupe; 6–14 items.
-9. Overview.timeline: realistic high-level range (e.g., "14–18 weeks") consistent with scope & total estimated hours (assume 6 productive dev hours per person per day; small team 4–6 engineers unless constraints imply otherwise). ALSO produce planning.timeline (inside planning phase) as a MULTI-LINE CATEGORY BREAKDOWN with EXACTLY these 4 lines in this order and tab or single space after colon:
+9. Timeline CONSTRAINT: Preferred timeline provided by user MUST be respected (user: "${input.timeline || 'N/A'}"). OVERVIEW.timeline must NOT exceed preferred timeline upper bound (if a single number, treat as max). If raw estimates would exceed, you MUST reduce scope (merge or simplify tasks) so total estimated hours fit within preferred time using assumption: 6 productive dev hours * 5 days/week * team size (default 4 engineers unless budget tier reduces team: micro=1 dev, low=2, mid=3, standard=4, enterprise=5). Express overview.timeline as a realistic range not exceeding preferred. If preferred timeline is empty, compute normally.
+  Also produce planning.timeline (inside planning phase) as a MULTI-LINE CATEGORY BREAKDOWN with EXACTLY these 4 lines in this order and tab or single space after colon (numbers MAY be 0 where no work is required):
 Frontend: <number> week(s)
 Backend: <number> week(s)
 Integration: <number> week(s)
@@ -54,6 +90,10 @@ Rules for planning.timeline lines:
 13. Maintain consistent category allocation: UI/UX/client in frontend; domain logic/data/services in backend; cross-cutting QA, performance, security, integration tests in integration; infra, CI/CD, monitoring, scaling, release in deployment.
 14. For Complex tasks include dependencies covering enabling tasks; never isolate complex tasks without prerequisites.
 15. Ensure no trailing commas; valid strict JSON parseable by JSON.parse.
+16. NEVER exceed preferred timeline; adjust task counts/estimatedHours downward if necessary while keeping logical sequence & dependencies valid. It's permitted for any component line to be 0 weeks/hours if truly no work. For small frontend-only projects integration and deployment arrays SHOULD be [] and corresponding planning.timeline lines MUST be 0.
+PROJECT SIZE FLAG: smallFrontendOnly=${smallProject ? 'true' : 'false'} (used to decide omission of integration & deployment categories when true).
+17. When shrinking for micro/low budgets, prefer reducing optional optimization, extensive testing layers, and non-critical advanced monitoring before core functional tasks.
+18. If preferred timeline is 0 (or expresses zero), produce the absolute minimal viable set of tasks and set overview.timeline to "0 weeks" (or "0–0 weeks") with tasks having very small hours (still >0) and planning lines possibly containing 0 values.
 
 PROJECT INPUT CONTEXT:
 Title: ${input.title}
@@ -64,6 +104,7 @@ Timeline Preference: ${input.timeline}
 Budget: ${input.budget}
 Specific Requirements: ${input.specificRequirements}
 User Provided Tech Stack: ${input.techStack.join(', ') || 'None'}
+ Derived Budget Tier: ${budgetInfo.tier}
 
 Return ONLY the JSON object.`;
 }

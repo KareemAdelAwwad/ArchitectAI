@@ -40,7 +40,7 @@ const floatingPanels = [
 function FloatingPanels() {
   return (
     <div className="relative grid gap-5">
-      <div className="pointer-events-none absolute -inset-16 bg-[radial-gradient(circle_at_70%_30%,rgba(99,102,241,0.20),transparent_60%)]" />
+      <div className="absolute" />
       {floatingPanels.map((p, i) => (
         <motion.div
           key={p.title}
@@ -57,13 +57,13 @@ function FloatingPanels() {
           <p className="text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-400">{p.blurb}</p>
         </motion.div>
       ))}
-      <motion.div
+      {/* <motion.div
         aria-hidden
         className="absolute -bottom-10 -right-10 w-52 h-52 rounded-full bg-gradient-to-tr from-blue-500/30 via-purple-500/30 to-pink-500/30 blur-2xl opacity-40 animate-pulse"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 0.4 }}
         transition={{ duration: 1.2, ease: 'easeOut' }}
-      />
+      /> */}
     </div>
   );
 }
@@ -77,10 +77,10 @@ export function Hero() {
   return (
     <div ref={ref} className="relative py-24 sm:py-32 overflow-hidden">
       <motion.div style={{ y: yBg }} className="absolute inset-0 -z-10 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-background/40" />
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[1100px] rounded-full bg-gradient-to-r from-blue-500/15 via-purple-500/15 to-pink-500/15 blur-3xl opacity-60" />
+        <div className="absolute inset-0 " />
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[520px] w-[1100px] rounded-full opacity-60" />
       </motion.div>
-      <div className="mx-auto max-w-6xl px-4 relative">
+      <div className="mx-auto max-w-7xl px-4 relative">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
@@ -93,7 +93,7 @@ export function Hero() {
               <span className="tracking-tight font-medium">AI Powered Planning OS</span>
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] bg-gradient-to-br from-neutral-900 via-neutral-700 to-neutral-500 dark:from-white dark:via-neutral-200 dark:to-neutral-400 bg-clip-text text-transparent">
-              Plan. Iterate. Ship. Faster with <span className="whitespace-nowrap">ArchitectAI</span>
+              Plan. Iterate. Ship. Faster with <span className="whitespace-nowrap">Architect AI</span>
             </h1>
             <p className="mt-6 text-lg text-neutral-600 dark:text-neutral-400 leading-relaxed">
               Turn raw product ideas into an actionable, prioritized engineering roadmap in minutes. Generate tasks, phases, estimates & refine collaboratively — all in one place.
@@ -132,22 +132,27 @@ export function FeatureGrid() {
     },
   ];
   return (
-    <div id="features" className="py-20 border-t border-neutral-200/60 dark:border-neutral-800/70">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="grid md:grid-cols-3 gap-8">
-          {features.map(f => (
-            <motion.div key={f.title} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.5 }} className="relative group rounded-2xl border bg-gradient-to-br from-background to-background p-6 hover:shadow-lg hover:-translate-y-1 transition-all">
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/0 via-purple-500/0 to-pink-500/0 opacity-0 group-hover:opacity-100 group-hover:from-blue-500/5 group-hover:via-purple-500/5 group-hover:to-pink-500/5 transition-colors" />
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 text-white flex items-center justify-center shadow mb-4">
-                {f.icon}
-              </div>
-              <h3 className="font-semibold text-lg mb-2 tracking-tight">{f.title}</h3>
-              <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{f.desc}</p>
-            </motion.div>
-          ))}
+    <section id="features" className="py-20">
+      <div className="mx-auto max-w-7xl px-4">
+        <div className="relative rounded-3xl border border-white/60 dark:border-white/10 bg-white/70 dark:bg-neutral-900/40 backdrop-blur-md shadow-[0_4px_30px_-8px_rgba(0,0,0,0.18)] overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 opacity-60 mix-blend-overlay bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.8),transparent_60%),radial-gradient(circle_at_80%_75%,rgba(236,72,153,0.25),transparent_65%)] dark:bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.08),transparent_60%),radial-gradient(circle_at_80%_75%,rgba(236,72,153,0.18),transparent_65%)]" />
+          <div className="relative p-8 md:p-12">
+            <div className="grid md:grid-cols-3 gap-8">
+              {features.map(f => (
+                <motion.div key={f.title} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.5 }} className="relative group rounded-2xl border border-white/50 dark:border-white/10 bg-white/60 dark:bg-white/5 backdrop-blur-sm p-6 hover:shadow-lg hover:-translate-y-1 transition-all">
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/0 via-purple-500/0 to-pink-500/0 opacity-0 group-hover:opacity-100 group-hover:from-blue-500/10 group-hover:via-purple-500/10 group-hover:to-pink-500/10 transition-colors" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-tr from-blue-600 to-purple-600 text-white flex items-center justify-center shadow mb-4">
+                    {f.icon}
+                  </div>
+                  <h3 className="font-semibold text-lg mb-2 tracking-tight">{f.title}</h3>
+                  <p className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">{f.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -156,7 +161,7 @@ export function CTA() {
     <div className="py-24 bg-gradient-to-b from-transparent via-neutral-50/60 dark:via-neutral-900/30 to-transparent">
       <div className="mx-auto max-w-3xl text-center px-4">
         <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Ship with architectural clarity</h2>
-        <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed mb-8">Avoid missed edge cases and rework. ArchitectAI gives you a living, adaptable blueprint for execution.</p>
+        <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed mb-8">Avoid missed edge cases and rework. Architect AI gives you a living, adaptable blueprint for execution.</p>
         <div className="flex justify-center"><AuthButton /></div>
         <p className="mt-3 text-xs text-neutral-500">Start free. Upgrade later.</p>
       </div>

@@ -309,12 +309,24 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
 
       {/* Task Categories */}
       <Tabs defaultValue="all" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="all">All Tasks</TabsTrigger>
-          <TabsTrigger value="frontend">Frontend</TabsTrigger>
-          <TabsTrigger value="backend">Backend</TabsTrigger>
-          <TabsTrigger value="integration">Integration</TabsTrigger>
-          <TabsTrigger value="deployment">Deployment</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-5 rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.55),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.07),transparent_60%)] before:pointer-events-none">
+          {[
+            { key: 'all', label: 'All Tasks' },
+            { key: 'frontend', label: 'Frontend' },
+            { key: 'backend', label: 'Backend' },
+            { key: 'integration', label: 'Integration' },
+            { key: 'deployment', label: 'Deployment' }
+          ].map(t => (
+            <TabsTrigger
+              key={t.key}
+              value={t.key}
+              className="relative rounded-full px-3 py-2 text-[11px] md:text-sm font-medium data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 data-[state=active]:shadow-sm transition-all overflow-hidden data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50"
+            >
+              <span className="relative z-10">{t.label}</span>
+              <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25" />
+              <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="all" className="space-y-6">
           {renderCategory(filteredFrontend, "Frontend Tasks", getCategoryIcon("frontend"))}

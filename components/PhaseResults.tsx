@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Clock, Users, Target, AlertTriangle, FileText, Database, Code, Palette } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { PlanningPhase, AnalysisPhase, DesignPhase } from '@/types/project';
 
 interface PhaseResultsProps {
@@ -179,18 +180,30 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
       </div>
 
       <Tabs defaultValue="planning" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="planning" className="flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            Planning
+        <TabsList className="relative grid grid-cols-3 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
+          <TabsTrigger
+            value="planning"
+            className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
+          >
+            <span className="relative z-10 inline-flex items-center gap-2"><Clock className="w-4 h-4" /><span className="hidden xs:inline">Planning</span><span className="xs:hidden">Plan</span></span>
+            <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+            <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
           </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" />
-            Analysis
+          <TabsTrigger
+            value="analysis"
+            className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
+          >
+            <span className="relative z-10 inline-flex items-center gap-2"><FileText className="w-4 h-4" />Analysis</span>
+            <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+            <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
           </TabsTrigger>
-          <TabsTrigger value="design" className="flex items-center gap-2">
-            <Palette className="w-4 h-4" />
-            Design
+          <TabsTrigger
+            value="design"
+            className="relative w-full rounded-full px-4 sm:px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-xs sm:text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50 gap-2 flex items-center justify-center"
+          >
+            <span className="relative z-10 inline-flex items-center gap-2"><Palette className="w-4 h-4" />Design</span>
+            <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+            <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
           </TabsTrigger>
         </TabsList>
 
@@ -235,22 +248,76 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                         Timeline Estimate
                       </h4>
                       {(() => {
-                        if (typeof planning.timeline === 'string' && planning.timeline.includes('Frontend:')) {
-                          const lines = planning.timeline.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-                          const entries = lines.map(l => {
-                            const [k, v] = l.split(':').map(s => s.trim());
-                            return { k, v };
-                          }).filter(e => e.k && e.v);
-                          if (entries.length === 4) {
+                        if (typeof planning.timeline === 'string') {
+                          const rows = planning.timeline.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                          const parsed = rows.map(line => {
+                            const [rawK, rawV] = line.split(':');
+                            if (!rawK || !rawV) return null;
+                            const k = rawK.trim();
+                            const v = rawV.trim();
+                            const m = v.match(/(\d+(?:\.\d+)?)\s*(week|weeks|day|days|hour|hours)/i);
+                            let weeks = 0;
+                            if (m) {
+                              const num = parseFloat(m[1]);
+                              const unit = m[2].toLowerCase();
+                              if (unit.startsWith('week')) weeks = num;
+                              else if (unit.startsWith('day')) weeks = num / 5; // assume 5 work days
+                              else if (unit.startsWith('hour')) weeks = num / 40; // 40h work week
+                            }
+                            return { key: k, label: k, raw: v, weeks };
+                          }).filter(Boolean) as { key: string; label: string; raw: string; weeks: number }[];
+                          const total = parsed.reduce((s, r) => s + r.weeks, 0);
+                          if (parsed.length && total > 0) {
+                            const colors = ['from-sky-500 to-cyan-400', 'from-emerald-500 to-green-400', 'from-indigo-500 to-violet-500', 'from-amber-500 to-orange-400', 'from-rose-500 to-pink-500', 'from-fuchsia-500 to-purple-500'];
                             return (
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                {entries.map(e => (
-                                  <div key={e.k} className="flex items-center justify-between rounded border px-2 py-1 bg-white/60 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700">
-                                    <span className="font-medium text-neutral-700 dark:text-neutral-200">{e.k}</span>
-                                    <span className="text-neutral-600 dark:text-neutral-300">{e.v}</span>
+                              <TooltipProvider>
+                                <div className="space-y-4">
+                                  {/* Stacked bar */}
+                                  <div className="relative group">
+                                    <div className="h-6 w-full rounded-full bg-neutral-200/70 dark:bg-neutral-800 flex overflow-hidden border border-neutral-300/60 dark:border-neutral-700 shadow-inner">
+                                      {parsed.map((p, idx) => {
+                                        const pct = (p.weeks / total) * 100;
+                                        return (
+                                          <Tooltip key={p.key}>
+                                            <TooltipTrigger asChild>
+                                              <div
+                                                className={`relative h-full bg-gradient-to-br ${colors[idx % colors.length]} transition-[flex-grow] duration-700 ease-out flex items-center justify-center text-[10px] font-medium text-white/90 hover:text-white`}
+                                                style={{ flexGrow: pct, flexBasis: pct + '%' }}
+                                              >
+                                                {pct > 14 && (
+                                                  <span className="px-2 truncate drop-shadow-sm">
+                                                    {p.label}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="text-xs py-1.5 px-2">
+                                              <div className="font-medium text-neutral-900 dark:text-neutral-100">{p.label}</div>
+                                              <div className="text-neutral-600 dark:text-neutral-300">{p.raw} · {((p.weeks / total) * 100).toFixed(1)}%</div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="absolute -bottom-5 left-0 w-full flex justify-between text-[10px] text-neutral-500 dark:text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                      <span>0w</span>
+                                      <span>{total.toFixed(1)}w</span>
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
+                                  {/* Legend */}
+                                  <div className="flex flex-wrap gap-2 text-[11px]">
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 font-medium text-neutral-700 dark:text-neutral-300">
+                                      <Clock className="w-3 h-3" /> Total {total.toFixed(1)}w
+                                    </span>
+                                    {parsed.map((p, idx) => (
+                                      <span key={p.key} className="inline-flex items-center gap-1 px-2 py-1 rounded border bg-neutral-50 dark:bg-neutral-900/50 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium">
+                                        <span className={`w-2 h-2 rounded-sm bg-gradient-to-br ${colors[idx % colors.length]}`}></span>
+                                        {p.label}: {(p.weeks).toFixed(1)}w
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TooltipProvider>
                             );
                           }
                         }

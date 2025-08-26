@@ -13,9 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, Clock, Users, Target, AlertTriangle, Database, Code, Smartphone, Server, Zap, Download } from 'lucide-react';
+import { CheckCircle, Clock, Users, Target, AlertTriangle, Database, Code, Smartphone, Server, Zap, Download, Wand2, Eye, EyeOff } from 'lucide-react';
+import OrbBackground from '@/components/ui/orb-background';
 import AuthButton from '@/components/AuthButton';
 import Sidebar from '@/components/Sidebar';
+import { usePathname } from 'next/navigation';
 import ProjectInputForm from '@/components/ProjectInputForm';
 import TaskList from '@/components/TaskList';
 import PhaseResults from '@/components/PhaseResults';
@@ -23,16 +25,28 @@ import ExportPlanButton from '@/components/ExportPlanButton';
 import { TopNav } from '@/components/TopNav';
 // import { generateProjectPlan } from '@/lib/projectPlanner';
 import { ProjectInput, ProjectPlan } from '@/types/project';
+import PlanOverviewHero from '@/components/PlanOverviewHero';
+import PlanMetrics from '@/components/PlanMetrics';
+import DarkVeil from '@/components/ui/DarkVeil';
+import Link from 'next/link';
+import LandingFooter from '@/components/LandingFooter';
 
 // NOTE: Moved HomeClient to components/HomeClient.tsx for type isolation.
 // Keeping implementation here to avoid large refactor; removing named export to satisfy Next type checker.
-interface HomeProps {
+type HomeInit = {
   initialPlan?: ProjectPlan;
   initialPlanId?: string;
   initialIsOwner?: boolean;
   initialCollaboratorRole?: 'viewer' | 'editor' | null;
-}
-function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false, initialCollaboratorRole = null }: HomeProps) {
+};
+declare global { interface Window { __HOME_INIT__?: HomeInit; } }
+function HomeClientInternal() {
+  // Read any server-provided initial state injected by /plans/[id] page via window global.
+  const init = (typeof window !== 'undefined' ? (window.__HOME_INIT__ || {}) : {}) as HomeInit;
+  const initialPlan = init.initialPlan;
+  const initialPlanId = init.initialPlanId;
+  const initialIsOwner = init.initialIsOwner ?? false;
+  const initialCollaboratorRole = init.initialCollaboratorRole ?? null;
   const { data: session, status } = useSession();
   const [currentStep, setCurrentStep] = useState<'input' | 'processing' | 'results'>(initialPlan ? 'results' : 'input');
   const [projectPlan, setProjectPlan] = useState<ProjectPlan | null>(initialPlan ?? null);
@@ -41,6 +55,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [collaboratorRole, setCollaboratorRole] = useState<'viewer' | 'editor' | null>(initialCollaboratorRole);
   const [collaborators, setCollaborators] = useState<Array<{ userId: string; role: 'viewer' | 'editor'; name?: string | null; image?: string | null }>>([]);
+  const [showMetadata, setShowMetadata] = useState<boolean>(true);
 
   useEffect(() => {
     if (initialPlanId) {
@@ -54,11 +69,16 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
     try {
       const saved = localStorage.getItem('sidebarCollapsed');
       if (saved) setSidebarCollapsed(saved === 'true');
+      const metaPref = localStorage.getItem('showPlanMetadata');
+      if (metaPref) setShowMetadata(metaPref === 'true');
     } catch { }
   }, []);
   useEffect(() => {
     try { localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed)); } catch { }
   }, [sidebarCollapsed]);
+  useEffect(() => {
+    try { localStorage.setItem('showPlanMetadata', String(showMetadata)); } catch { }
+  }, [showMetadata]);
   const [editSection, setEditSection] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [aiInstruction, setAiInstruction] = useState('');
@@ -152,6 +172,11 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   const refineWithAI = async () => {
     if (!projectPlan || !editSection) return;
     setIsRefining(true);
+    // Enter processing view for refinement for consistent UX
+    setIsRefining(true);
+    const previousStep = currentStep;
+    setCurrentStep('processing');
+    setProcessingProgress(0);
     try {
       const res = await fetch('/api/refine-plan-section', {
         method: 'POST',
@@ -173,6 +198,8 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
       alert('AI refine failed: ' + e.message);
     } finally {
       setIsRefining(false);
+      // Return to results after brief delay to show progress animation
+      setTimeout(() => setCurrentStep(previousStep === 'results' ? 'results' : 'results'), 400);
     }
   };
 
@@ -334,11 +361,31 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
     }
   };
 
-  const handleNewProject = () => {
-    setCurrentStep('input');
-    setProjectPlan(null);
-    setProcessingProgress(0);
-  };
+  const pathname = usePathname();
+  const canEdit = isOwner || collaboratorRole === 'editor';
+  // When navigating back to root '/', treat it as starting a new project (show form)
+  useEffect(() => {
+    if (pathname === '/') {
+      setCurrentStep('input');
+      setProjectPlan(null);
+      setProcessingProgress(0);
+      setCurrentPlanId(null);
+    }
+  }, [pathname]);
+  // Also support custom new-plan event (triggered by sidebar button) in case URL never left Next's root route
+  useEffect(() => {
+    const handler = () => {
+      setCurrentStep('input');
+      setProjectPlan(null);
+      setProcessingProgress(0);
+      setCurrentPlanId(null);
+      setEditSection(null);
+      setAiInstruction('');
+      setEditDialogOpen(false);
+    };
+    window.addEventListener('new-plan', handler);
+    return () => window.removeEventListener('new-plan', handler);
+  }, []);
 
   // Show sign-in prompt if not authenticated
   if (status === 'loading') {
@@ -354,42 +401,67 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
 
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col" data-page>
-        <TopNav />
+      <div className="h-screen flex flex-col overflow-hidden relative" data-page>
+        {/* Animated artistic background */}
+        <div className="absolute inset-0 -z-10 pointer-events-none select-none">
+          <DarkVeil
+            hueShift={35}
+            noiseIntensity={0.08}
+            scanlineIntensity={0.05}
+            scanlineFrequency={0.0}
+            warpAmount={0.15}
+            speed={0.4}
+            resolutionScale={1}
+          />
+          {/* Soft gradient overlay for readability */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.35),transparent_60%),radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.18),transparent_65%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.25),transparent_60%),radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.25),transparent_65%)] mix-blend-overlay" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+        </div>
+        <TopNav hideThemeToggle />
         {/* Marketing / public landing experience */}
-        <main className="flex-1">
+        <main className="flex-1 app-scroll relative">
           <Hero />
           <FeatureGrid />
           <ScreenshotsShowcase />
           <CTA />
         </main>
-        <footer className="border-t py-8 text-center text-xs text-neutral-500">© {new Date().getFullYear()} ArchitectAI. Built for pragmatic engineering teams.</footer>
+        <LandingFooter />
       </div>
     );
   }
   if (currentStep === 'input') {
     return (
-      <div className="min-h-screen flex" data-page>
+      <div className="h-screen flex overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.15),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.12),transparent_55%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.18),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.15),transparent_55%)]" data-page>
         <Sidebar
           onSelectPlan={handleSelectPlan}
-          onNewProject={handleNewProject}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden relative">
           <TopNav />
-          <div className="mx-auto w-full max-w-6xl px-4 py-10">
-            <Card className="max-w-5xl mx-auto border-neutral-200 dark:border-neutral-800">
-              <CardHeader>
-                <CardTitle>Start Your Project Planning</CardTitle>
-                <CardDescription>
-                  Provide details about your project and let our AI guide you through comprehensive planning
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ProjectInputForm onSubmit={handleProjectSubmit} />
-              </CardContent>
-            </Card>
+          <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,black,transparent)] opacity-60" style={{ background: 'repeating-linear-gradient(135deg,rgba(255,255,255,0.04)_0,rgba(255,255,255,0.04)_2px,transparent_2px,transparent_6px)' }} />
+          <div className="mx-auto w-full max-w-6xl px-4 py-10 app-scroll flex-1 relative">
+            <div className="max-w-5xl mx-auto">
+              <div className="mb-8 text-center space-y-4">
+                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-purple-600">Start Your Project Planning</h1>
+                {/* <p className="text-sm md:text-base text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto">Craft a production-ready project plan with AI-supported analysis. Provide context and we&apos;ll generate structured phases, tasks & architecture considerations.</p> */}
+              </div>
+              <div className="relative">
+                {/* Subtle outer highlight ring */}
+                <div className="pointer-events-none absolute inset-0 rounded-2xl before:absolute before:inset-0 before:rounded-2xl before:[background:linear-gradient(140deg,rgba(255,255,255,0.55),rgba(255,255,255,0)_40%)] dark:before:[background:linear-gradient(140deg,rgba(255,255,255,0.08),rgba(255,255,255,0)_45%)] after:absolute after:inset-0 after:rounded-2xl after:border after:border-white/50 dark:after:border-white/10 after:[mask:linear-gradient(180deg,white,transparent)]" />
+                <div className="glass rounded-2xl p-6 md:p-10 relative shadow-[0_0_0_1px_rgba(255,255,255,0.3),0_4px_25px_-4px_rgba(0,0,0,0.15)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_4px_30px_-6px_rgba(0,0,0,0.6)] overflow-hidden">
+                  {/* Gradient edge accent */}
+                  <div className="pointer-events-none absolute -inset-px rounded-[inherit] opacity-70 [background:linear-gradient(120deg,rgba(99,102,241,0.35),rgba(236,72,153,0.35),transparent_70%)] mix-blend-overlay" />
+                  {/* Soft inner light */}
+                  <div className="pointer-events-none absolute inset-0 rounded-[inherit] [mask:radial-gradient(circle_at_30%_25%,rgba(0,0,0,0.55),transparent_70%)] bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.7),transparent_55%)] dark:bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.08),transparent_65%)]" />
+                  {/* Noise overlay */}
+                  <div className="noise pointer-events-none absolute inset-0 rounded-[inherit] opacity-[0.15] dark:opacity-[0.25] mix-blend-soft-light" />
+                  <div className="relative">
+                    <ProjectInputForm onSubmit={handleProjectSubmit} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -399,29 +471,29 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   if (currentStep === 'processing') {
     const currentStepIndex = Math.min(generationSteps.length - 1, Math.floor((processingProgress / 100) * generationSteps.length));
     return (
-      <div className="min-h-screen flex" data-page>
+      <div className="h-screen flex overflow-hidden relative" data-page>
         <Sidebar
           onSelectPlan={handleSelectPlan}
-          onNewProject={handleNewProject}
           isCollapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="flex-1 flex items-center justify-center px-6 py-12 overflow-hidden relative">
+          <OrbBackground />
           <div className="w-full max-w-2xl relative">
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-xl" aria-hidden="true"></div>
-            <div className="relative rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-neutral-900/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/40 shadow-xl p-10">
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/10 blur-2xl opacity-70" aria-hidden="true"></div>
+            <div className="relative rounded-3xl border border-white/30 dark:border-white/10 bg-white/25 dark:bg-white/10 backdrop-blur-xl supports-[backdrop-filter]:bg-white/25 dark:supports-[backdrop-filter]:bg-white/10 shadow-[0_8px_40px_-10px_rgba(79,70,229,0.35),0_2px_8px_-2px_rgba(236,72,153,0.5)] p-10">
               <div className="flex flex-col items-center text-center mb-8">
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg ring-1 ring-black/5 mb-6 animate-pulse">
                   <Zap className="w-10 h-10 text-white" />
                 </div>
                 <h1 className="text-2xl font-semibold tracking-tight mb-2">Generating Your Project Plan</h1>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-md">This usually takes between <span className="font-medium text-neutral-800 dark:text-neutral-200">2–4 minutes</span> depending on project complexity. Feel free to grab a coffee.</p>
+                <p className="text-sm text-neutral-100/80 dark:text-neutral-300 max-w-md">This usually takes between <span className="font-medium text-white/90">2–4 minutes</span> depending on project complexity. Feel free to grab a coffee.</p>
               </div>
               <div className="mb-8">
-                <div className="h-3 rounded-full bg-neutral-200/70 dark:bg-neutral-800/70 overflow-hidden">
+                <div className="h-3 rounded-full bg-white/20 dark:bg-white/10 overflow-hidden backdrop-blur">
                   <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out" style={{ width: `${processingProgress}%` }} />
                 </div>
-                <div className="flex justify-between text-xs mt-2 text-neutral-600 dark:text-neutral-400">
+                <div className="flex justify-between text-xs mt-2 text-white/80 font-medium">
                   <span>{processingProgress < 100 ? `${processingProgress.toFixed(0)}%` : '100%'}</span>
                   <span>{processingProgress < 100 ? estimatedRemaining : 'Finalizing...'}</span>
                 </div>
@@ -431,7 +503,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                   const done = i < currentStepIndex;
                   const active = i === currentStepIndex && processingProgress < 100;
                   return (
-                    <li key={s} className={`flex items-center gap-3 text-sm rounded-md px-3 py-2 border transition-colors ${done ? 'border-green-500/30 bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300' : active ? 'border-blue-500/40 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 animate-pulse' : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400'} `}>
+                    <li key={s} className={`flex items-center gap-3 text-sm rounded-md px-3 py-2 border transition-colors ${done ? 'border-emerald-400/50 bg-emerald-300/10 text-emerald-200 backdrop-blur-sm' : active ? 'border-blue-400/60 bg-blue-300/10 text-blue-200 animate-pulse backdrop-blur-sm' : 'border-white/25 bg-white/5 text-white/70'} `}>
                       <span className="w-5 text-center">
                         {done ? '✓' : active ? '•' : ''}
                       </span>
@@ -440,7 +512,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                   );
                 })}
               </ul>
-              <p className="text-xs text-neutral-500 dark:text-neutral-500 text-center">Optimizing tasks, phases & estimates with AI models…</p>
+              <p className="text-xs text-white/60 text-center">Optimizing tasks, phases & estimates with AI models…</p>
             </div>
           </div>
         </div>
@@ -449,146 +521,138 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   }
 
   return (
-    <div className="min-h-screen flex" data-page>
+    <div className="h-screen flex overflow-hidden" data-page>
       <Sidebar
         onSelectPlan={handleSelectPlan}
-        onNewProject={handleNewProject}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <div className={`flex flex-col w-full transition-all duration-300 ease-out ${sidebarCollapsed ? 'pl-0' : ''}`}>
-        <TopNav right={projectPlan && currentPlanId ? <ExportPlanButton planId={currentPlanId} /> : undefined} />
-        <div className={`px-6 py-10 transition-all duration-300 w-full max-w-[90rem] mx-auto ${sidebarCollapsed ? '' : ''}`}>
-          <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Project Plan Generated</h1>
-              <p className="text-neutral-600 dark:text-neutral-400">Your comprehensive development roadmap is ready</p>
+      <div className={`flex flex-col w-full overflow-hidden transition-all duration-300 ease-out ${sidebarCollapsed ? 'pl-0' : ''}`}>
+        <TopNav
+          right={projectPlan && currentPlanId ? (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowMetadata(s => !s)}
+                className="gap-1"
+              >
+                {showMetadata ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="hidden sm:inline">{showMetadata ? 'Hide' : 'Show'} Meta</span>
+                <span className="sm:hidden">{showMetadata ? 'Hide' : 'Show'}</span>
+              </Button>
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)} className="gap-1">
+                  <Wand2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Refine / Edit</span>
+                  <span className="sm:hidden">Edit</span>
+                </Button>
+              )}
+              <ExportPlanButton planId={currentPlanId} />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {projectPlan && (() => {
-                const canEdit = isOwner || collaboratorRole === 'editor'; return (
-                  <>
-                    <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }} title={canEdit ? 'Refine or manually edit a section' : 'View sections (read-only)'}>
-                      Edit / Refine
-                    </Button>
-                    <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!canEdit && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium">Choose Section</label>
-                            <select
-                              className="mt-1 w-full border rounded px-2 py-1 text-sm"
-                              value={editSection || ''}
-                              onChange={(e) => openManualEdit(e.target.value)}
-                            >
-                              <option value="" disabled>Select a section...</option>
-                              {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
-                            <Textarea
-                              rows={10}
-                              value={editText}
-                              onChange={e => setEditText(e.target.value)}
-                              className="font-mono text-xs"
-                              disabled={!editSection || !canEdit}
-                              placeholder={editSection ? '' : 'Select a section first'}
-                            />
-                          </div>
-                          <Separator />
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
-                            <Textarea
-                              rows={3}
-                              placeholder={canEdit ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
-                              value={aiInstruction}
-                              onChange={e => setAiInstruction(e.target.value)}
-                              disabled={!editSection || !canEdit}
-                            />
-                            <div className="flex gap-2">
-                              <Button type="button" variant="outline" disabled={!editSection || isRefining || !canEdit} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
-                              <Button type="button" variant="default" disabled={!editSection || !canEdit} onClick={applyManualEdit}>Apply Manual Edit</Button>
-                            </div>
-                            {!canEdit && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-
+          ) : undefined}
+        />
+        <div className="px-6 pt-8 pb-24 w-full max-w-[100rem] mx-auto space-y-12 flex-1 app-scroll">
           {projectPlan && (
-            <div className="space-y-10">
-              <Card className="border-neutral-200 dark:border-neutral-800">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    {projectPlan.overview.title}
-                  </CardTitle>
-                  <CardDescription className="dark:text-neutral-400">{projectPlan.overview.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-3 gap-6">
+            <>
+              {showMetadata && (
+                <div className="space-y-6">
+                  <PlanOverviewHero
+                    plan={projectPlan}
+                    isOwner={isOwner}
+                    collaboratorRole={collaboratorRole}
+                    collaborators={collaborators}
+                  />
+                  <PlanMetrics plan={projectPlan} />
+                </div>
+              )}
+              <div>
+                <Tabs defaultValue="tasks" className="space-y-6">
+                  <TabsList className="relative grid grid-cols-2 w-full rounded-full p-0.5 bg-neutral-100/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-border/60 overflow-hidden before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.6),transparent_55%)] before:dark:bg-[radial-gradient(circle_at_25%_15%,rgba(255,255,255,0.08),transparent_60%)] before:pointer-events-none">
+                    <TabsTrigger
+                      value="tasks"
+                      className="relative w-full rounded-full px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50"
+                    >
+                      <span className="relative z-10">Tasks</span>
+                      <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+                      <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="phases"
+                      className="relative w-full rounded-full px-6 py-2 data-[state=active]:bg-white/80 data-[state=active]:dark:bg-neutral-800/70 data-[state=active]:shadow-sm data-[state=active]:text-neutral-900 dark:data-[state=active]:text-neutral-50 data-[state=inactive]:text-neutral-600 dark:data-[state=inactive]:text-neutral-400 transition-all font-medium text-sm overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500/50"
+                    >
+                      <span className="relative z-10">Phases</span>
+                      <span className="absolute inset-0 opacity-0 data-[state=active]:opacity-100 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] from-indigo-500/20 via-fuchsia-500/15 to-purple-500/25 dark:from-indigo-400/25 dark:via-fuchsia-400/15 dark:to-purple-400/25 backdrop-blur-sm" />
+                      <span className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-indigo-500/0 data-[state=active]:ring-indigo-500/30 rounded-full" />
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="tasks" className="space-y-8">
+                    <TaskList key={(currentPlanId || projectPlan.overview.title) + ':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
+                  </TabsContent>
+                  <TabsContent value="phases" className="space-y-6">
+                    <PhaseResults
+                      planning={projectPlan.waterfallPhases.planning}
+                      analysis={projectPlan.waterfallPhases.analysis}
+                      design={projectPlan.waterfallPhases.design}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </div>
+              <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!(isOwner || collaboratorRole === 'editor') && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
                     <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
-                        <Code className="w-4 h-4" />
-                        Project Type
-                      </h4>
-                      <Badge variant="secondary">{projectPlan.overview.projectType}</Badge>
+                      <label className="text-sm font-medium">Choose Section</label>
+                      <select
+                        className="mt-1 w-full border rounded px-2 py-1 text-sm bg-white/70 dark:bg-neutral-800/60"
+                        value={editSection || ''}
+                        onChange={(e) => openManualEdit(e.target.value)}
+                      >
+                        <option value="" disabled>Select a section...</option>
+                        {editableSections.map(s => <option key={s} value={s}>{sectionLabels[s] || s}</option>)}
+                      </select>
                     </div>
-                    <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
-                        <Database className="w-4 h-4" />
-                        Tech Stack
-                      </h4>
-                      <div className="flex flex-wrap gap-1">
-                        {projectPlan.overview.techStack.map((tech, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {tech}
-                          </Badge>
-                        ))}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Manual Content {editSection ? `(${editSection.startsWith('tasks.') ? 'JSON Array of Tasks' : 'Line-separated Items'})` : ''}</label>
+                      <Textarea
+                        rows={10}
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        className="font-mono text-xs bg-white/70 dark:bg-neutral-800/60"
+                        disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
+                        placeholder={editSection ? '' : 'Select a section first'}
+                      />
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
+                      <Textarea
+                        rows={3}
+                        placeholder={(isOwner || collaboratorRole === 'editor') ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
+                        value={aiInstruction}
+                        onChange={e => setAiInstruction(e.target.value)}
+                        disabled={!editSection || !(isOwner || collaboratorRole === 'editor')}
+                        className="bg-white/70 dark:bg-neutral-800/60"
+                      />
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" disabled={!editSection || isRefining || !(isOwner || collaboratorRole === 'editor')} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
+                        <Button type="button" variant="default" disabled={!editSection || !(isOwner || collaboratorRole === 'editor')} onClick={applyManualEdit}>Apply Manual Edit</Button>
                       </div>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        Timeline
-                      </h4>
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">{projectPlan.overview.timeline}</p>
+                      {!(isOwner || collaboratorRole === 'editor') && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Tabs defaultValue="tasks" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="tasks">Development Tasks</TabsTrigger>
-                  <TabsTrigger value="phases">Waterfall Phases</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="tasks">
-                  <TaskList key={(currentPlanId || projectPlan.overview.title) + ':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
-                </TabsContent>
-
-                <TabsContent value="phases">
-                  <PhaseResults
-                    planning={projectPlan.waterfallPhases.planning}
-                    analysis={projectPlan.waterfallPhases.analysis}
-                    design={projectPlan.waterfallPhases.design}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
+                  <DialogFooter>
+                    <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditSection(null); }}>Close</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+          {!projectPlan && (
+            <div className="text-center py-24 opacity-60 text-sm">Select or generate a plan to view details.</div>
           )}
         </div>
       </div>

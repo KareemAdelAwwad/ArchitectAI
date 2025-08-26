@@ -77,7 +77,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -97,8 +97,14 @@
 
   /* Utility: glass panel */
   .glass { @apply bg-white/60 dark:bg-neutral-900/60 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-neutral-900/50 border border-white/40 dark:border-neutral-800/60; }
+  /* Fine grain noise (data URI) */
+  .noise { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); background-size: 120px 120px; }
 
   /* Smooth fade-in for pages */
   [data-page] { animation: fade-in 0.4s ease; }
   @keyframes fade-in { from { opacity:0; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }
 
+/* App scroll model: lock body scroll; use .app-scroll for internal panes */
+html, body { height: 100%; }
+body { overflow: hidden; overscroll-behavior: contain; }
+.app-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
