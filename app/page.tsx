@@ -300,7 +300,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
         const data = await r.json();
         setIsOwner(!!data.isOwner);
         setCollaboratorRole(data.collaboratorRole || null);
-  if (Array.isArray(data.collaborators)) setCollaborators(data.collaborators);
+        if (Array.isArray(data.collaborators)) setCollaborators(data.collaborators);
       }
     }).catch(() => { });
   };
@@ -613,7 +613,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                 </TabsList>
 
                 <TabsContent value="tasks">
-                  <TaskList key={(currentPlanId || projectPlan.overview.title)+':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
+                  <TaskList key={(currentPlanId || projectPlan.overview.title) + ':tasks'} tasks={projectPlan.tasks} onToggleTask={handleTaskToggle} readOnly={!isOwner && collaboratorRole !== 'editor'} />
                 </TabsContent>
 
                 <TabsContent value="phases">

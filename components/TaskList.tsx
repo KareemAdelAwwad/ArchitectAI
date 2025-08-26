@@ -148,7 +148,7 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
                   const applied = mergeTask(task);
                   return (
                     <div
-                    key={task.id}
+                      key={task.id}
                       className={`group rounded-lg border p-4 transition-colors shadow-sm/5 hover:shadow-sm focus-within:ring-2 focus-within:ring-primary/30 outline-none ${doneTask
                         ? "bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50"
                         : "bg-white/80 dark:bg-neutral-900/60 border-neutral-200 dark:border-neutral-800"
@@ -168,55 +168,55 @@ export default function TaskList({ tasks, onToggleTask, readOnly }: TaskListProp
                               className={`font-semibold leading-snug tracking-tight ${doneTask ? "line-through text-muted-foreground" : ""
                                 }`}
                             >
-                            {applied.title}
+                              {applied.title}
                             </h4>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <Badge className={getComplexityColor(applied.complexity)}>
-                              {applied.complexity}
-                            </Badge>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge className={getComplexityColor(applied.complexity)}>
+                                {applied.complexity}
+                              </Badge>
                               <Badge
                                 variant="outline"
                                 className="flex items-center gap-1 text-xs"
                               >
                                 <Clock className="h-3 w-3" />
-                              {applied.estimatedHours}h
+                                {applied.estimatedHours}h
                               </Badge>
-                            {!readOnly && (
-                              <div className="flex items-center gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Delete this task locally? (Not persisted)')) {
-                                      setDeletedTasks(prev => new Set(prev).add(task.id));
-                                    }
-                                  }}
-                                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
-                                  aria-label="Delete task"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTaskId(task.id);
-                                    setEditDraft({ title: applied.title, description: applied.description, estimatedHours: applied.estimatedHours, complexity: applied.complexity });
-                                  }}
-                                  className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600"
-                                  aria-label="Edit task"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
+                              {!readOnly && (
+                                <div className="flex items-center gap-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm('Delete this task locally? (Not persisted)')) {
+                                        setDeletedTasks(prev => new Set(prev).add(task.id));
+                                      }
+                                    }}
+                                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600"
+                                    aria-label="Delete task"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingTaskId(task.id);
+                                      setEditDraft({ title: applied.title, description: applied.description, estimatedHours: applied.estimatedHours, complexity: applied.complexity });
+                                    }}
+                                    className="p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600"
+                                    aria-label="Edit task"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                           <p
                             className={`mb-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 ${doneTask ? "line-through opacity-70" : ""
                               }`}
                           >
-                          {applied.description}
+                            {applied.description}
                           </p>
                           {task.dependencies.length > 0 && (
                             <div className="text-xs text-neutral-500 dark:text-neutral-500">
