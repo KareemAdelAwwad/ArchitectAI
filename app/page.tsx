@@ -500,15 +500,15 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
               <p className="text-neutral-600 dark:text-neutral-400">Your comprehensive development roadmap is ready</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {projectPlan && (isOwner || collaboratorRole === 'editor') && (
+              {projectPlan && (() => { const canEdit = isOwner || collaboratorRole === 'editor'; return (
                 <>
-                  <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }}>
-                    Edit / Refine Section
+                  <Button type="button" variant="secondary" onClick={() => { setEditDialogOpen(true); }} title={canEdit ? 'Refine or manually edit a section' : 'View sections (read-only)'}>
+                    Edit / Refine
                   </Button>
                   <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) { setEditSection(null); setAiInstruction(''); } }}>
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
-                        <DialogTitle>{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'}</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">{editSection ? `Editing: ${sectionLabels[editSection] || editSection}` : 'Select Section to Edit'} {!canEdit && <Badge variant="outline" className="text-[10px]">Read-only</Badge>}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
@@ -529,7 +529,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                             value={editText}
                             onChange={e => setEditText(e.target.value)}
                             className="font-mono text-xs"
-                            disabled={!editSection}
+                            disabled={!editSection || !canEdit}
                             placeholder={editSection ? '' : 'Select a section first'}
                           />
                         </div>
@@ -538,15 +538,16 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                           <label className="text-sm font-medium">AI Refinement Instruction (optional)</label>
                           <Textarea
                             rows={3}
-                            placeholder="e.g., Add performance optimization tasks and clarify database indexing strategy"
+                            placeholder={canEdit ? 'e.g., Add performance optimization tasks and clarify database indexing strategy' : 'Editing disabled (viewer access)'}
                             value={aiInstruction}
                             onChange={e => setAiInstruction(e.target.value)}
-                            disabled={!editSection}
+                            disabled={!editSection || !canEdit}
                           />
                           <div className="flex gap-2">
-                            <Button type="button" variant="outline" disabled={!editSection || isRefining} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
-                            <Button type="button" variant="default" disabled={!editSection} onClick={applyManualEdit}>Apply Manual Edit</Button>
+                            <Button type="button" variant="outline" disabled={!editSection || isRefining || !canEdit} onClick={refineWithAI}>{isRefining ? 'Refining...' : 'Refine with AI'}</Button>
+                            <Button type="button" variant="default" disabled={!editSection || !canEdit} onClick={applyManualEdit}>Apply Manual Edit</Button>
                           </div>
+                          {!canEdit && <p className="text-xs text-neutral-500">You have read-only access to this plan. Ask the owner for edit permissions.</p>}
                         </div>
                       </div>
                       <DialogFooter>
@@ -555,7 +556,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
                     </DialogContent>
                   </Dialog>
                 </>
-              )}
+              ); })()}
             </div>
           </div>
 
