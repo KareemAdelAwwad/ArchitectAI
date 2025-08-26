@@ -23,7 +23,16 @@ OUTPUT RULES (CRITICAL):
 6. Titles: action-oriented, specific (e.g., "Implement role-based auth middleware" not "Auth").
 7. Descriptions: 1 concise sentence (<= 180 chars) describing purpose & business/technical rationale. Avoid line breaks.
 8. Tech stack: merge provided stack + inferred realistic stack; dedupe; 6–14 items.
-9. Overview.timeline: realistic high-level range (e.g., "14–18 weeks") consistent with scope & total estimated hours (assume 6 productive dev hours per person per day; small team 4–6 engineers unless constraints imply otherwise).
+9. Overview.timeline: realistic high-level range (e.g., "14–18 weeks") consistent with scope & total estimated hours (assume 6 productive dev hours per person per day; small team 4–6 engineers unless constraints imply otherwise). ALSO produce planning.timeline (inside planning phase) as a MULTI-LINE CATEGORY BREAKDOWN with EXACTLY these 4 lines in this order and tab or single space after colon:
+Frontend: <number> week(s)
+Backend: <number> week(s)
+Integration: <number> week(s)
+Deployment: <number> (week(s)|hour(s))
+Rules for planning.timeline lines:
+ - Use plural weeks if value > 1 else singular week. For hours use 'hours' plural unless exactly 1.
+ - Deployment may be hours if under 8 hours total, otherwise convert to weeks (round up partial weeks to nearest half week e.g., 1.5 weeks).
+ - Numbers must be integers for weeks, integers for hours.
+ - No extra commentary; ONLY those four lines separated by a single newline.
 10. Waterfall phase arrays: Provide richly specific bullet strings (each 6–16 words) capturing professional detail. They MUST be arrays (even if single item). Keep them:
    - planning.scope: major deliverables & boundaries
    - planning.objectives: measurable outcome statements

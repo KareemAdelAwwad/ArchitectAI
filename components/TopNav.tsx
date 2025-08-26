@@ -5,6 +5,7 @@ import { Target } from "lucide-react";
 import Image from 'next/image';
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface TopNavProps {
   right?: ReactNode;

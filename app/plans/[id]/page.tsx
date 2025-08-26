@@ -1,5 +1,3 @@
-// Importing internal client page component is no longer supported directly.
-// Using default page and passing props via a wrapper component instead.
 import Home from '@/app/page';
 import { notFound, redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
@@ -17,7 +15,6 @@ export default async function PlanEntryPage({ params }: { params: { id: string }
   const stored = await repo.get(session.user.id, params.id);
   if (!stored) return notFound();
   const isOwner = stored.userId === session.user.id;
-  const collaboratorEntry = (stored.collaborators || []).find(c => c.userId === session.user.id);
-  // Pass data through global state approach not yet implemented; quick workaround: ignore passing props.
+  // For now just render root app; future enhancement could pre-hydrate plan via context.
   return <Home />;
 }

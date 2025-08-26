@@ -620,13 +620,31 @@ export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
     timeline: input.timeline || 'To be determined during planning phase'
   };
 
+  const planningPhase = generatePlanningPhase(input);
+  // Derive structured timeline breakdown from task estimates (fallback when AI not used)
+  const sumHours = (arr: any[]) => arr.reduce((s, t) => s + (t.estimatedHours || 0), 0);
+  const tasksTemp = generateTasks(input);
+  const fh = sumHours(tasksTemp.frontend);
+  const bh = sumHours(tasksTemp.backend);
+  const ih = sumHours(tasksTemp.integration);
+  const dh = sumHours(tasksTemp.deployment);
+  const hoursToWeeks = (hrs: number) => Math.ceil(hrs / (6 * 5)); // 6 productive hrs * 5 days per week
+  const fmtWeeks = (w: number) => `${w} week${w === 1 ? '' : 's'}`;
+  const deploymentLine = dh < 8 ? `${dh || 4} hour${(dh || 4) === 1 ? '' : 's'}` : fmtWeeks(hoursToWeeks(dh));
+  planningPhase.timeline = [
+    `Frontend: ${fmtWeeks(Math.max(1, hoursToWeeks(fh)))}`,
+    `Backend: ${fmtWeeks(Math.max(1, hoursToWeeks(bh)))}`,
+    `Integration: ${fmtWeeks(Math.max(1, hoursToWeeks(ih)))}`,
+    `Deployment: ${deploymentLine}`
+  ].join('\n');
+
   const waterfallPhases = {
-    planning: generatePlanningPhase(input),
+    planning: planningPhase,
     analysis: generateAnalysisPhase(input),
     design: generateDesignPhase(input)
   };
 
-  const tasks = generateTasks(input);
+  const tasks = tasksTemp;
 
   return {
     overview,

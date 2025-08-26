@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { ShinyButton } from '@/components/ui/shiny-button';
 import { Hero, FeatureGrid, CTA } from '@/components/landing/Hero';
+import ScreenshotsShowcase from '@/components/landing/ScreenshotsShowcase';
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -359,6 +360,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
         <main className="flex-1">
           <Hero />
           <FeatureGrid />
+          <ScreenshotsShowcase />
           <CTA />
         </main>
         <footer className="border-t py-8 text-center text-xs text-neutral-500">© {new Date().getFullYear()} ArchitectAI. Built for pragmatic engineering teams.</footer>
@@ -377,45 +379,7 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
         <div className="flex-1 flex flex-col">
           <TopNav />
           <div className="mx-auto w-full max-w-6xl px-4 py-10">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl mb-6 bg-gradient-to-tr from-blue-600 to-purple-600 shadow-lg ring-1 ring-black/5">
-                <Target className="w-8 h-8 text-white drop-shadow" />
-              </div>
-              <h1 className="text-4xl font-bold tracking-tight mb-4">Plan Faster. Ship Smarter.</h1>
-              <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">Comprehensive task breakdowns, phase deliverables, estimates, and refinement tools — all generated and iterated with AI.</p>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
-                <CardHeader>
-                  <Clock className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                  <CardTitle className="text-lg">Planning Phase</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Define scope, objectives, and project timeline</p>
-                </CardContent>
-              </Card>
-              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
-                <CardHeader>
-                  <Users className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <CardTitle className="text-lg">Analysis Phase</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Gather requirements and create user stories</p>
-                </CardContent>
-              </Card>
-              <Card className="text-center hover:shadow-md transition-all border-neutral-200 dark:border-neutral-800">
-                <CardHeader>
-                  <Code className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                  <CardTitle className="text-lg">Design Phase</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Create architecture and technical specifications</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="max-w-4xl mx-auto border-neutral-200 dark:border-neutral-800">
+            <Card className="max-w-5xl mx-auto border-neutral-200 dark:border-neutral-800">
               <CardHeader>
                 <CardTitle>Start Your Project Planning</CardTitle>
                 <CardDescription>
@@ -632,5 +596,5 @@ function HomeClientInternal({ initialPlan, initialPlanId, initialIsOwner = false
   );
 }
 
-// Root page (/) supplies no initial props; dynamic plan route uses HomeClient directly.
+// Root page (/) supplies no initial props.
 export default function Home() { return <HomeClientInternal />; }

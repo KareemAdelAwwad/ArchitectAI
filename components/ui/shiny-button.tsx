@@ -14,8 +14,8 @@ export interface ShinyButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
 export const ShinyButton = React.forwardRef<HTMLButtonElement, ShinyButtonProps>(function ShinyButton({ className, children, variant, ...props }, ref) {
   return (
     <button ref={ref} className={cn(shinyButton({ variant }), 'overflow-hidden group', className)} {...props}>
-      <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 opacity-90" />
-      <span className="absolute inset-0 rounded-md [mask-image:radial-gradient(circle_at_30%_30%,white,transparent)] bg-[linear-gradient(110deg,rgba(255,255,255,.35),45%,rgba(255,255,255,0),55%,rgba(255,255,255,.35))] bg-[length:200%_100%] animate-[shimmer_2.5s_infinite]" />
+      <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-600/90 via-purple-600/80 to-pink-600/90 opacity-85" />
+      <span className="absolute inset-0 rounded-md [mask-image:radial-gradient(circle_at_30%_30%,white,transparent)] bg-[linear-gradient(110deg,rgba(255,255,255,.35),45%,rgba(255,255,255,0),55%,rgba(255,255,255,.35))] bg-[length:200%_100%] motion-safe:animate-[shimmer_2.8s_linear_infinite]" />
       <span className="relative flex items-center gap-2">
         {children}
         <svg className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>

@@ -234,9 +234,32 @@ export default function PhaseResults({ planning, analysis, design }: PhaseResult
                         <Clock className="w-4 h-4" />
                         Timeline Estimate
                       </h4>
-                      <Badge variant="outline" className="text-sm px-3 py-1 dark:bg-neutral-800/60 dark:border-neutral-700 dark:text-neutral-200">
-                        {planning.timeline}
-                      </Badge>
+                      {(() => {
+                        if (typeof planning.timeline === 'string' && planning.timeline.includes('Frontend:')) {
+                          const lines = planning.timeline.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                          const entries = lines.map(l => {
+                            const [k, v] = l.split(':').map(s => s.trim());
+                            return { k, v };
+                          }).filter(e => e.k && e.v);
+                          if (entries.length === 4) {
+                            return (
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                {entries.map(e => (
+                                  <div key={e.k} className="flex items-center justify-between rounded border px-2 py-1 bg-white/60 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700">
+                                    <span className="font-medium text-neutral-700 dark:text-neutral-200">{e.k}</span>
+                                    <span className="text-neutral-600 dark:text-neutral-300">{e.v}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                        }
+                        return (
+                          <Badge variant="outline" className="text-sm px-3 py-1 dark:bg-neutral-800/60 dark:border-neutral-700 dark:text-neutral-200">
+                            {planning.timeline}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     {renderListSection(
                       'Required Resources',
