@@ -4,6 +4,18 @@ import path from 'path';
 // @ts-ignore - OpenAI types may not resolve correctly depending on version
 import OpenAI from 'openai';
 
+// Soft timeout (ms) for AI generation so Vercel function can still return a fallback gracefully
+const MAX_AI_MS = Number(process.env.QUICKSTART_AI_TIMEOUT_MS || 18000); // keep under hobby 10s hard limit margin
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(label + ' timeout'));
+    }, ms);
+    promise.then(v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
+  });
+}
+
 // Retain only minimal package manager inference; all other logic-based planning removed per request.
 function inferPackageManager(): QuickStartPhase['packageManager'] {
   try {
@@ -308,14 +320,14 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
     try {
-      const completion = await client.chat.completions.create({
+      const completion = await withTimeout(client.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'qwen/qwen3-235b-a22b:free',
         temperature: 0.4,
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user + `\nAttempt:${i + 1}` }
         ]
-      } as any);
+      } as any), Math.max(3000, Math.min(MAX_AI_MS, MAX_AI_MS - (i * 1500))), 'quickstart-ai');
       const text = completion.choices?.[0]?.message?.content?.trim() || '';
       if (!text) throw new Error('Empty response');
       const cleaned = text.replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```\s*$/, '').trim();
@@ -332,7 +344,8 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
         packageScripts: parsed.packageScripts && typeof parsed.packageScripts === 'object' ? parsed.packageScripts : {},
         envExample: arr(parsed.envExample),
         packageManager: pm,
-        generatedAt: parsed.generatedAt || new Date().toISOString()
+        // Always stamp generation time locally to avoid accepting stale/incorrect timestamps from model output
+        generatedAt: new Date().toISOString()
       };
       if (!phase.installCommands.length) throw new Error('Missing installCommands');
       return phase;

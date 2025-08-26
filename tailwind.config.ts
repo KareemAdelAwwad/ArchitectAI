@@ -10,7 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        // Use Manrope directly; next/font injects @font-face + class, reducing reliance on CSS variable ordering issues
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace']
       },
       backgroundImage: {

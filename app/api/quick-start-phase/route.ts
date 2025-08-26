@@ -33,8 +33,24 @@ export async function POST(req: NextRequest) {
     } else {
       return NextResponse.json({ error: 'Provide planId or fullPlan' }, { status: 400 });
     }
-    // Already generated? return existing unless force param later
-    if (plan.waterfallPhases.quickStart && !force) return NextResponse.json({ quickStart: plan.waterfallPhases.quickStart, cached: true });
+    // Already generated? return existing unless force requested.
+    if (plan.waterfallPhases.quickStart && !force) {
+      const qs = plan.waterfallPhases.quickStart;
+      // Safety: ensure generatedAt is present & plausible (not older than 30 days or in future >5m)
+      try {
+        const now = Date.now();
+        const ts = Date.parse(qs.generatedAt || '');
+        const thirtyDays = 1000 * 60 * 60 * 24 * 30;
+        const fiveMinutes = 1000 * 60 * 5;
+        if (!qs.generatedAt || isNaN(ts) || (now - ts) > thirtyDays || (ts - now) > fiveMinutes) {
+          qs.generatedAt = new Date().toISOString();
+          if (planId) {
+            await repo.updateSection(session.user.id, planId, 'waterfallPhases.quickStart.generatedAt', qs.generatedAt);
+          }
+        }
+      } catch { /* non-fatal timestamp normalization */ }
+      return NextResponse.json({ quickStart: plan.waterfallPhases.quickStart, cached: true });
+    }
     const quickStart = await generateQuickStartPhase(plan, packageManager);
     // Persist if planId
     if (planId) {

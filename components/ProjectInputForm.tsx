@@ -21,7 +21,6 @@ const commonTechStacks = {
   'Full Stack': ['React', 'Node.js', 'Next.js', 'TypeScript', 'MongoDB', 'PostgreSQL', 'Firebase', 'Supabase'],
   Database: ['PostgreSQL', 'MongoDB', 'MySQL', 'Redis', 'Firebase', 'Supabase', 'DynamoDB'],
   Cloud: ['AWS', 'Google Cloud', 'Azure', 'Vercel', 'Netlify', 'Railway', 'Docker', 'Kubernetes'],
-  "Package Manager": ['npm', 'Yarn', 'pnpm', 'bun'],
   Auth: ['Better Auth', 'Auth0', 'Firebase Auth', 'Supabase Auth', 'NextAuth.js', 'Clerk'],
 };
 

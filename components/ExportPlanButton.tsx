@@ -50,8 +50,22 @@ export default function ExportPlanButton({ planId }: Props) {
           received = buf.length;
           if (total) setProgress(100); else setProgress(null);
         }
-        const merged = new Uint8Array(received);
-        const blob = new Blob([merged], { type: 'application/pdf' });
+        // Concatenate chunks into a single Uint8Array (previous code created an empty zeroed buffer)
+        let merged: Uint8Array;
+        if (chunks.length === 1) {
+          merged = chunks[0];
+        } else {
+          merged = new Uint8Array(received);
+          let offset = 0;
+          for (const c of chunks) {
+            merged.set(c, offset);
+            offset += c.length;
+          }
+        }
+        // Create a new plain Uint8Array to avoid SharedArrayBuffer typing edge cases
+        const copy = new Uint8Array(merged.byteLength);
+        copy.set(merged);
+        const blob = new Blob([copy], { type: 'application/pdf' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `plan-${planId}.pdf`;

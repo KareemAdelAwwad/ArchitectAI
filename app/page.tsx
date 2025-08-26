@@ -709,7 +709,15 @@ function HomeClientInternal() {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ planId: currentPlanId, fullPlan: currentPlanId ? undefined : projectPlan, packageManager: pm, force: !!projectPlan.waterfallPhases.quickStart })
                           });
-                          if (!res.ok) throw new Error(await res.text());
+                          if (!res.ok) {
+                            const raw = await res.text();
+                            let msg = raw;
+                            try { const j = JSON.parse(raw); if (j.error) msg = j.error; } catch { /* ignore */ }
+                            if (/<!DOCTYPE html>/i.test(raw)) {
+                              msg = 'Server timeout or network error (HTML error page)';
+                            }
+                            throw new Error(msg);
+                          }
                           const data = await res.json();
                           const qs = data.quickStart;
                           setProjectPlan(p => p ? ({ ...p, waterfallPhases: { ...p.waterfallPhases, quickStart: qs } }) : p);
@@ -738,7 +746,20 @@ function HomeClientInternal() {
                             }
                           } catch { /* non-fatal */ }
                         } catch (e: any) {
-                          alert('Quick Start generation failed: ' + e.message);
+                          const msg = e?.message || 'Unknown error';
+                          alert('Quick Start generation failed: ' + msg);
+                          // Opportunistic refresh: in some cases the generation succeeded but response failed (timeout / 504)
+                          if (currentPlanId) {
+                            try {
+                              const planRes = await fetch(`/api/plans/${currentPlanId}`);
+                              if (planRes.ok) {
+                                const planData = await planRes.json();
+                                if (planData?.plan?.waterfallPhases?.quickStart) {
+                                  setProjectPlan(planData.plan);
+                                }
+                              }
+                            } catch { /* ignore refresh errors */ }
+                          }
                         } finally {
                           setLoadingQuickStart(false);
                         }
