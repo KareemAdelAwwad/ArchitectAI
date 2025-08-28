@@ -772,51 +772,22 @@ export default function PhaseResults({ planning, analysis, design, quickStart, l
                             </section>
                           </div>
                         </div>
-                        {/* Vibe Coder Prompt Section - Improved UI */}
-                        <div className="mt-16">
-                          <Card className="overflow-hidden border-2 border-fuchsia-500/30 dark:border-fuchsia-700/40 shadow-lg">
-                            <div className="relative">
-                              <div className="absolute inset-0 h-20 bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-purple-500 opacity-80" />
-                              <div className="relative z-10 flex items-center gap-3 px-6 py-5">
-                                <span className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-white/20 ring-2 ring-fuchsia-400/40 backdrop-blur">
-                                  <Code className="w-6 h-6 text-white" />
-                                </span>
-                                <div>
-                                  <h3 className="text-xl font-bold text-white tracking-tight">Vibe Coder?</h3>
-                                  <p className="text-xs text-fuchsia-100 mt-1">One-shot, high-signal prompt for AI-powered codebase generation</p>
-                                </div>
-                                <div className="ml-auto flex gap-2">
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button size="sm" variant="secondary" className="h-8 text-[11px] bg-fuchsia-600/80 text-white hover:bg-fuchsia-700/90" onClick={() => navigator.clipboard.writeText(vibeCoderPrompt)}>
-                                          <Code className="w-4 h-4 mr-1" /> Copy
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="bottom">Copy prompt to clipboard</TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button size="sm" className="h-8 text-[11px] bg-indigo-600/80 text-white hover:bg-indigo-700/90" onClick={() => downloadTextFile('vibe-coder-prompt.md', vibeCoderPrompt)}>
-                                          <Download className="w-4 h-4 mr-1" /> Download
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="bottom">Download prompt as .md file</TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </div>
-                              </div>
+                        {/* Vibe Coder Prompt Section */}
+                        <div className="mt-14 space-y-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <h4 className="text-lg font-semibold flex items-center gap-2 text-gray-900 dark:text-neutral-100">
+                              <span className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-gradient-to-br from-fuchsia-500 to-indigo-500 text-white text-xs font-bold">VC</span>
+                              Vibe Coder?
+                            </h4>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="secondary" className="h-8 text-[11px]" onClick={() => navigator.clipboard.writeText(vibeCoderPrompt)}>Copy Prompt</Button>
+                              <Button size="sm" className="h-8 text-[11px]" onClick={() => downloadTextFile('vibe-coder-prompt.md', vibeCoderPrompt)}>Download</Button>
                             </div>
-                            <div className="px-6 pb-6 pt-2">
-                              <div className="my-4 border-t border-fuchsia-300/30 dark:border-fuchsia-700/30" />
-                              <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4 max-w-3xl leading-relaxed">
-                                Feed this prompt to an autonomous AI coder (Cursor, Windsurf, Claude, etc.) to scaffold a full production-grade application using your complete plan context. <span className="font-semibold text-fuchsia-700 dark:text-fuchsia-400">Review and edit before use for best results.</span>
-                              </p>
-                              <div className="border rounded-lg bg-gradient-to-br from-white/90 via-fuchsia-50/60 to-indigo-50/80 dark:from-neutral-900/80 dark:via-fuchsia-900/30 dark:to-indigo-900/30 p-4 max-h-[420px] overflow-auto text-[12px] whitespace-pre-wrap font-mono leading-relaxed shadow-inner">
-                                {vibeCoderPrompt}
-                              </div>
-                            </div>
-                          </Card>
+                          </div>
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-3xl leading-relaxed">One-shot, high-signal prompt to feed an AI &quot;vibe&quot; / autonomous coder (Cursor, Windsurf, Claude, etc.) to scaffold the full application using the complete plan context above.</p>
+                          <div className="border rounded-lg bg-white/80 dark:bg-neutral-900/70 p-4 max-h-[520px] overflow-auto text-[11px] whitespace-pre-wrap font-mono leading-relaxed shadow-inner">
+                            {vibeCoderPrompt}
+                          </div>
                         </div>
                       </>
                     )}

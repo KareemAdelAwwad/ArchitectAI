@@ -85,10 +85,26 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
 
   const next = () => { if (step < steps.length - 1 && canGoNext()) setStep(step + 1); };
   const back = () => { if (step > 0) setStep(step - 1); };
+ 
+   const populateWithBlueprint = () => {
+    setFormData({
+      title: "AI-Powered Personal Finance Dashboard",
+      description: "A web application that connects to users' bank accounts (via Plaid API) to automatically categorize transactions, visualize spending habits, and provide AI-driven insights for savings and investments. Key features include budget tracking, goal setting, and personalized financial advice.",
+      projectType: "Full Stack",
+      techStack: ['Next.js', 'TypeScript', 'Tailwind CSS', 'ShadCN', 'Node.js', 'Express.js', 'PostgreSQL', 'Prisma', 'Plaid API', 'Vercel', 'NextAuth.js'],
+      targetUsers: "Millennials and Gen Z looking to get a better handle on their finances.",
+      timeline: "2-3 months",
+      budget: "$5K - $10K",
+      specificRequirements: "Securely handle sensitive financial data, provide real-time data synchronization, and ensure the AI recommendations are relevant and actionable. The UI should be modern, intuitive, and mobile-responsive.",
+      modelChoice: 'gemini'
+    });
+    // Optionally, move the user to the review step to see the populated data
+    setStep(steps.length - 1);
+  };
 
-  const descriptionCharCount = formData.description?.length || 0;
-
-  return (
+   const descriptionCharCount = formData.description?.length || 0;
+ 
+   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Stepper */}
       <div className="flex flex-col gap-3">
@@ -317,7 +333,10 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-2">
-        <Button type="button" variant="ghost" disabled={step === 0} onClick={back}>Back</Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" disabled={step === 0} onClick={back}>Back</Button>
+          <Button type="button" variant="outline" size="sm" onClick={populateWithBlueprint}>Quick Build Blueprint</Button>
+        </div>
         {step < steps.length - 1 && (
           <Button type="button" onClick={next} disabled={!canGoNext()} className="px-6">Next</Button>
         )}
