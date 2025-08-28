@@ -36,6 +36,7 @@ function deriveBudgetTier(budget: string | undefined): {
 
 function buildPrompt(input: ProjectInput) {
   const budgetInfo = deriveBudgetTier(input.budget);
+  console.log("Budget Info: ", budgetInfo)
   const smallProject = (input.projectType === 'Frontend') && (budgetInfo.tier === 'micro' || budgetInfo.tier === 'low');
   /**
    * We purposely keep the structure identical to existing TS interfaces to avoid runtime parse breaks.
@@ -54,7 +55,23 @@ OUTPUT RULES (CRITICAL):
   - Full Stack: micro 20–30, low 30–40, mid 45–55, standard 60–75, enterprise 75–110 tasks total.
   - Frontend OR Backend only: micro 12–18, low 18–25, mid 26–34, standard 35–45, enterprise 46–65 tasks.
   Provide COMPREHENSIVE but NON-TRIVIAL tasks; if budget is micro/low MERGE or OMITS non-essential optimization/refinement tasks while keeping a coherent MVP. NEVER exceed upper bound by more than 5%.
-5. Complexity ↔ hours: Simple <5h, Medium 5–15h, Complex 16–40h (never 0). Distribute roughly: 50–60% Simple, 30–40% Medium, 10–15% Complex (adjust if domain demands more complexity).
+5. Task sizing & realistic hours (CRITICAL):
+  a. Complexity ↔ hours calibration (use integer or .5 where needed, never 0):
+    - Simple: 0.25–4h (tiny setup / config / small component / minor schema change). NEVER assign more than 4h to a Simple task.
+    - Medium: 5–12h (cohesive feature slice, endpoint + validation + basic tests, multi-component UI flow).
+    - Complex: 13–32h (multi-step feature requiring coordination or deep design). Anything estimated >32h MUST be decomposed.
+    (Legacy bounds 16–40h replaced for tighter realism.)
+  b. Break down over-large tasks: No single task may exceed 32h. If an effort >12h can be split into independently deliverable increments, split into multiple tasks each still outcome-focused (avoid excessive micro-tasks <0.25h).
+  c. Avoid generic buckets (e.g., "Implement backend services", "Set up entire UI"). Replace with specific deliverables (e.g., "Implement user session persistence service").
+  d. Scaffold / automation tasks must reflect modern tooling speed. Examples realistic upper bounds:
+    - "Setup Next.js project with TypeScript and Tailwind" <= 0.5h (often 0.25h)
+    - Add ESLint + Prettier config 0.5–1h
+    - Basic CI pipeline (lint + test) 1–2h
+    - Single CRUD endpoint (handler + validation + basic tests) 2–4h (Medium)
+    - Auth flow (JWT/session issuance + refresh logic) 6–10h (Medium/Complex depending on scope)
+    - Payment integration (stripe basic checkout) 8–14h (Complex if webhooks + retries)
+  e. Distribution target AFTER decomposition: 50–60% Simple, 30–40% Medium, 10–15% Complex. If project is tiny (micro tier) you may have 0–2 Complex tasks total.
+  f. Do NOT inflate hours for familiarity tasks; reflect realistic experienced engineer pace.
 6. Titles: action-oriented, specific (e.g., "Implement role-based auth middleware" not "Auth").
 7. Descriptions: 1 concise sentence (<= 180 chars) describing purpose & business/technical rationale. Avoid line breaks.
 8. Tech stack: merge provided stack + inferred realistic stack; dedupe; 6–14 items.
