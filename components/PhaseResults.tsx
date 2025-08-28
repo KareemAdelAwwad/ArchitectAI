@@ -102,6 +102,97 @@ export default function PhaseResults({ planning, analysis, design, quickStart, l
       URL.revokeObjectURL(url);
     } catch { /* noop */ }
   };
+  // Build a comprehensive one-shot prompt for "vibe coder" style AI tools
+  const vibeCoderPrompt = React.useMemo(() => {
+    try {
+      const lines: string[] = [];
+      lines.push(`# Build the Full Application (One-Shot Prompt)`);
+      lines.push('You are an elite full-stack engineer + solution architect. Using the structured plan below, generate a production-grade implementation. Focus on clean architecture, type safety, security, DX, and minimum extraneous commentary.');
+      lines.push('Output: a cohesive codebase scaffold (folders, representative files, critical implementations) plus any infra/config essentials.');
+      lines.push('Avoid: placeholder lorem, trivial boilerplate repetition, invented requirements outside this spec.');
+      lines.push('---');
+      lines.push(`## Project Overview`);
+      lines.push(`Title: ${planning?.scope?.[0] ? planning.scope[0] : ''}`.trim());
+      lines.push(`Description: ${planning?.scope?.[1] ? planning.scope[1] : ''}`.trim());
+      lines.push('');
+      if (planning?.objectives?.length) {
+        lines.push('## Objectives');
+        planning.objectives.forEach(o => lines.push(`- ${o}`));
+        lines.push('');
+      }
+      if (analysis?.functionalRequirements?.length) {
+        lines.push('## Functional Requirements');
+        analysis.functionalRequirements.forEach(r => lines.push(`- ${r}`));
+        lines.push('');
+      }
+      if (analysis?.nonFunctionalRequirements?.length) {
+        lines.push('## Non-Functional Requirements');
+        analysis.nonFunctionalRequirements.forEach(r => lines.push(`- ${r}`));
+        lines.push('');
+      }
+      if (analysis?.userStories?.length) {
+        lines.push('## User Stories');
+        analysis.userStories.forEach(u => lines.push(`- ${u}`));
+        lines.push('');
+      }
+      if (design?.systemArchitecture?.length) {
+        lines.push('## System Architecture');
+        design.systemArchitecture.forEach(a => lines.push(`- ${a}`));
+        lines.push('');
+      }
+      if (design?.databaseSchema?.length) {
+        lines.push('## Database Schema (Conceptual)');
+        design.databaseSchema.forEach(d => lines.push(`- ${d}`));
+        lines.push('');
+      }
+      if (design?.apiEndpoints?.length) {
+        lines.push('## API Endpoints (Planned)');
+        design.apiEndpoints.forEach(e => lines.push(`- ${e}`));
+        lines.push('');
+      }
+      if (design?.codingStandards?.length) {
+        lines.push('## Coding Standards / Conventions');
+        design.codingStandards.forEach(c => lines.push(`- ${c}`));
+        lines.push('');
+      }
+      if (quickStart) {
+        if (quickStart.installCommands?.length) {
+          lines.push('## Install Commands');
+          lines.push('```bash');
+          quickStart.installCommands.forEach(c => lines.push(c));
+          lines.push('```');
+          lines.push('');
+        }
+        if (quickStart.packageScripts && Object.keys(quickStart.packageScripts).length) {
+          lines.push('## package.json Scripts');
+          lines.push('```json');
+          lines.push(JSON.stringify({ scripts: quickStart.packageScripts }, null, 2));
+          lines.push('```');
+          lines.push('');
+        }
+        if (quickStart.envExample?.length) {
+          lines.push('## .env.example');
+          lines.push('```bash');
+          quickStart.envExample.forEach(l => lines.push(l));
+          lines.push('```');
+          lines.push('');
+        }
+      }
+      lines.push('## Delivery Expectations');
+      lines.push('- Provide directory tree first, then key file contents.');
+      lines.push('- Implement core domain models, API route handlers, and configuration.');
+      lines.push('- Include authentication scaffolding if implied by requirements.');
+      lines.push('- Add comments only where architectural rationale or non-obvious decisions occur.');
+      lines.push('- Ensure environment variable usage matches .env.example exactly.');
+      lines.push('- Include minimal tests or examples for critical flows (auth, main business logic).');
+      lines.push('- Optimize for readability + extensibility.');
+      lines.push('');
+      lines.push('Begin now.');
+      return lines.join('\n');
+    } catch {
+      return 'Prompt generation failed.';
+    }
+  }, [planning, analysis, design, quickStart]);
   const renderListSection = (title: string, items: any, icon: React.ReactNode, color: string) => {
     const safeItems: string[] = Array.isArray(items)
       ? items
@@ -680,6 +771,52 @@ export default function PhaseResults({ planning, analysis, design, quickStart, l
                               </div>
                             </section>
                           </div>
+                        </div>
+                        {/* Vibe Coder Prompt Section - Improved UI */}
+                        <div className="mt-16">
+                          <Card className="overflow-hidden border-2 border-fuchsia-500/30 dark:border-fuchsia-700/40 shadow-lg">
+                            <div className="relative">
+                              <div className="absolute inset-0 h-20 bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-purple-500 opacity-80" />
+                              <div className="relative z-10 flex items-center gap-3 px-6 py-5">
+                                <span className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-white/20 ring-2 ring-fuchsia-400/40 backdrop-blur">
+                                  <Code className="w-6 h-6 text-white" />
+                                </span>
+                                <div>
+                                  <h3 className="text-xl font-bold text-white tracking-tight">Vibe Coder?</h3>
+                                  <p className="text-xs text-fuchsia-100 mt-1">One-shot, high-signal prompt for AI-powered codebase generation</p>
+                                </div>
+                                <div className="ml-auto flex gap-2">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button size="sm" variant="secondary" className="h-8 text-[11px] bg-fuchsia-600/80 text-white hover:bg-fuchsia-700/90" onClick={() => navigator.clipboard.writeText(vibeCoderPrompt)}>
+                                          <Code className="w-4 h-4 mr-1" /> Copy
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom">Copy prompt to clipboard</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button size="sm" className="h-8 text-[11px] bg-indigo-600/80 text-white hover:bg-indigo-700/90" onClick={() => downloadTextFile('vibe-coder-prompt.md', vibeCoderPrompt)}>
+                                          <Download className="w-4 h-4 mr-1" /> Download
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom">Download prompt as .md file</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="px-6 pb-6 pt-2">
+                              <div className="my-4 border-t border-fuchsia-300/30 dark:border-fuchsia-700/30" />
+                              <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4 max-w-3xl leading-relaxed">
+                                Feed this prompt to an autonomous AI coder (Cursor, Windsurf, Claude, etc.) to scaffold a full production-grade application using your complete plan context. <span className="font-semibold text-fuchsia-700 dark:text-fuchsia-400">Review and edit before use for best results.</span>
+                              </p>
+                              <div className="border rounded-lg bg-gradient-to-br from-white/90 via-fuchsia-50/60 to-indigo-50/80 dark:from-neutral-900/80 dark:via-fuchsia-900/30 dark:to-indigo-900/30 p-4 max-h-[420px] overflow-auto text-[12px] whitespace-pre-wrap font-mono leading-relaxed shadow-inner">
+                                {vibeCoderPrompt}
+                              </div>
+                            </div>
+                          </Card>
                         </div>
                       </>
                     )}

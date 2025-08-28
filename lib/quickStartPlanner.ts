@@ -287,8 +287,8 @@ function extractJsonBlock(text: string): any {
 }
 
 async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY (or OPENAI_API_KEY)');
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY');
   const pm = packageManager || inferPackageManager();
   const client = new OpenAI({
     apiKey,
@@ -310,7 +310,7 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
   for (let i = 0; i < attempts; i++) {
     try {
       const completion = await client.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'qwen/qwen3-235b-a22b:free',
+        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3-235b-a22b:free',
         temperature: 0.4,
         messages: [
           { role: 'system', content: system },

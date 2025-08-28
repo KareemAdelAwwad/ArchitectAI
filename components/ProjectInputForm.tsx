@@ -25,7 +25,7 @@ const commonTechStacks = {
 };
 
 export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
-  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [] });
+  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [], modelChoice: 'deepseek' });
   const [customTech, setCustomTech] = useState('');
   const [step, setStep] = useState(0); // 0 Basic, 1 Stack, 2 Details, 3 Review
 
@@ -138,6 +138,18 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                   <SelectItem value="Frontend">Frontend Only</SelectItem>
                   <SelectItem value="Backend">Backend Only</SelectItem>
                   <SelectItem value="Full Stack">Full Stack Application</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="modelChoice">AI Model</Label>
+              <Select value={formData.modelChoice} onValueChange={(value) => setFormData(prev => ({ ...prev, modelChoice: value as any }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select model" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deepseek">Deepseek R1</SelectItem>
+                  <SelectItem value="gemini">
+                    <s>Gemini 2.5 Pro</s> <span className="text-xs text-neutral-500">(deprecated)</span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -260,6 +272,10 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Type</p>
                 <p>{formData.projectType}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Model</p>
+                <p>{formData.modelChoice === 'deepseek' ? 'Deepseek R1' : 'Gemini 2.5 Pro'}</p>
               </div>
             </div>
             <div>

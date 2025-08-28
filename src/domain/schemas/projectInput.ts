@@ -8,7 +8,8 @@ export const ProjectInputSchema = z.object({
   targetUsers: z.string().max(500).default(''),
   timeline: z.string().max(200).default(''),
   budget: z.string().max(100).default(''),
-  specificRequirements: z.string().max(5000).default('')
+  specificRequirements: z.string().max(5000).default(''),
+  modelChoice: z.enum(['gemini', 'deepseek']).default('gemini').optional()
 });
 
 export type ProjectInputDTO = z.infer<typeof ProjectInputSchema>;

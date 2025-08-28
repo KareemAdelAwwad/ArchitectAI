@@ -606,15 +606,18 @@ const generateTasks = (input: ProjectInput): {
 };
 
 export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
+  console.log('[Template Planner] generateProjectPlan start', { title: input.title, projectType: input.projectType });
   // Determine small frontend-only scenario similar to AI planner logic
   const budgetLower = (input.budget || '').toLowerCase();
   const isMicroLow = /under\s*\$?1k|\b0\b|\bzero\b|micro|low|\b\$?([0-9]{1,3})(?![0-9])/.test(budgetLower);
   const smallFrontendOnly = input.projectType === 'Frontend' && isMicroLow;
+  console.log('[Template Planner] Flags', { smallFrontendOnly });
   // Merge user's tech stack with suggestions
   const suggestedTech = suggestTechStack(input.projectType, input.description);
   const finalTechStack = input.techStack.length > 0
     ? Array.from(new Set([...input.techStack, ...suggestedTech]))
     : suggestedTech;
+  console.log('[Template Planner] Tech stack decided', finalTechStack);
 
   const overview = {
     title: input.title,
@@ -628,9 +631,16 @@ export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
   // Derive structured timeline breakdown from task estimates (fallback when AI not used)
   const sumHours = (arr: any[]) => arr.reduce((s, t) => s + (t.estimatedHours || 0), 0);
   let tasksTemp = generateTasks(input);
+  console.log('[Template Planner] Base tasks generated', {
+    frontend: tasksTemp.frontend.length,
+    backend: tasksTemp.backend.length,
+    integration: tasksTemp.integration.length,
+    deployment: tasksTemp.deployment.length
+  });
   if (smallFrontendOnly) {
     tasksTemp.integration = [];
     tasksTemp.deployment = [];
+    console.log('[Template Planner] Pruned integration & deployment for small frontend only');
   }
   const fh = sumHours(tasksTemp.frontend);
   const bh = sumHours(tasksTemp.backend);
@@ -653,10 +663,12 @@ export const generateProjectPlan = (input: ProjectInput): ProjectPlan => {
   };
 
   const tasks = tasksTemp;
-
-  return {
+  const plan = {
     overview,
     tasks,
     waterfallPhases
   };
+  (plan as any)._source = 'template';
+  console.log('[Template Planner] Plan assembled', { timeline: planningPhase.timeline.replace(/\n/g, ' | ') });
+  return plan;
 };

@@ -1,8 +1,11 @@
 import { ProjectInput, ProjectPlan, Task } from '@/types/project';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 
-// Model name from env or sensible default
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Default model names
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+// Model used via OpenRouter (DeepSeek served through OpenRouter). Uses OPENROUTER_* env vars instead of OPENAI_* now.
+const DEEPSEEK_MODEL = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-r1-0528:free';
 
 // Lightweight heuristic budget tier classifier to guide the model (string may be free‑form)
 function deriveBudgetTier(budget: string | undefined): {
@@ -11,6 +14,8 @@ function deriveBudgetTier(budget: string | undefined): {
 } {
   if (!budget) return { tier: 'standard', label: 'Standard (assume ~$10K-$25K)' };
   const b = budget.toLowerCase();
+  // Explicit unlimited / very large descriptors
+  if (/(unlimited|infinite|no\s*limit|blank\s*check)/.test(b)) return { tier: 'enterprise', label: budget };
   // Numeric extraction
   const numMatch = b.match(/\$?\s*(\d+[,.]?\d*)\s*k?/);
   let amount = 0;
@@ -40,30 +45,41 @@ function buildPrompt(input: ProjectInput) {
   const smallProject = (input.projectType === 'Frontend') && (budgetInfo.tier === 'micro' || budgetInfo.tier === 'low');
   /**
    * We purposely keep the structure identical to existing TS interfaces to avoid runtime parse breaks.
-   * Prompt now simplified: less prescriptive numeric guidance; rely on LLM judgment with raw context.
+   * Enhanced prompt: more prescriptive + enterprise scaling guidance while keeping same JSON schema.
    */
-  return `You are a senior software delivery program manager & enterprise architect.
-Produce a PROFESSIONAL WATERFALL PROJECT PLAN as STRICT JSON ONLY (no markdown/backticks) matching:
+  const enterpriseExtras = budgetInfo.tier === 'enterprise' ? `\nENTERPRISE / LARGE-SCALE AUGMENTATIONS:\n- Treat scope as a potentially multi-year, multi-team program (example: large ecommerce platform / Amazon-like).\n- Still constrain JSON to given schema; express breadth through: more tasks (ensure still concise), richer architecture bullets, broader databaseSchema & apiEndpoints coverage.\n- Target task count guidance (not hard requirement):\n  * frontend: 25-80 tasks covering customer web, admin console, accessibility, performance.\n  * backend: 40-120 tasks covering domain microservices, data pipelines, search, payments, inventory, notifications.\n  * integration: 20-60 tasks for QA strategy, performance/load, chaos testing, security, compliance (PCI, GDPR), observability, resilience drills.\n  * deployment: 15-40 tasks for multi-region infra as code, CI/CD, blue/green, canary, auto-scaling, disaster recovery (RPO/RTO), cost governance.\n- Encourage parallelization: dependencies represent critical sequencing only (avoid serial chains >5).\n- Favor service-oriented / event-driven design; highlight domain boundaries in systemArchitecture.\n- databaseSchema should include core domains (Users, Products, Inventory, Orders, Payments, Carts, Shipments, Reviews, Notifications, Analytics, Audit) as separate lines.\n- apiEndpoints should cover representative CRUD + critical workflows (cart ops, checkout, payment webhook, inventory reservation, order lifecycle, search, user auth/session, review submission).\n- Include security & compliance considerations (encryption, PII minimization, tokenization for payments) within appropriate phases/tasks.\n- For extremely large scope DO NOT explode into thousands of tasks; provide a pragmatic initial tranche enabling a first large-scale release (foundational platform) not infinite backlog.\n` : '';
+
+  return `You are a senior program manager & enterprise software architect generating a PROFESSIONAL WATERFALL PROJECT PLAN. Output STRICT JSON ONLY (no markdown/backticks) matching EXACTLY:
 interface ProjectPlan { overview:{ title:string; description:string; projectType:string; techStack:string[]; timeline:string }; tasks:{ frontend:Task[]; backend:Task[]; integration:Task[]; deployment:Task[] }; waterfallPhases:{ planning:{ scope:string[]; objectives:string[]; stakeholders:string[]; timeline:string; resources:string[]; risks:string[] }; analysis:{ functionalRequirements:string[]; nonFunctionalRequirements:string[]; userStories:string[]; constraints:string[]; integrations:string[] }; design:{ systemArchitecture:string[]; databaseSchema:string[]; apiEndpoints:string[]; uiDesign:string[]; codingStandards:string[] } } }
 interface Task { id:string; title:string; description:string; complexity:'Simple'|'Medium'|'Complex'; estimatedHours:number; dependencies:string[]; category:string; completed:boolean }
 
-KEY PRINCIPLES (lightweight – rely on judgment, avoid arbitrary inflation):
-1. JSON ONLY. No text outside JSON.
-2. Task ids sequential: t1, t2, ... (unique across all categories). Dependencies only point to earlier ids (acyclic, keep concise & relevant).
-3. Provide realistic, implementation-level tasks: break large efforts into clearly deliverable units but avoid noisy micro-tasks (<0.25h). Setup tasks that modern tooling automates should use fractional hours like 0.25 or 0.5 if they truly take minutes.
-4. Hours must reflect experienced engineer effort (not padded). If something would exceed ~1 engineer-day (~6 productive hours) consider splitting unless it's inherently cohesive. Cap any single task at a reasonable size; prefer a few coherent follow-on tasks rather than one giant item.
-5. Complexity is qualitative: Simple (small change or straightforward component), Medium (multi-step feature slice), Complex (cross-cutting or multi-component coordination). Keep consistent with described hours.
-6. Titles action-oriented & specific. Descriptions: one concise business/technical rationale sentence.
-7. Keep techStack realistic (merge given + inferred) 6–14 items.
-8. Overview.timeline MUST respect user's preferred timeline (can't exceed). If timeline preference implies extreme constraint, reduce/merge scope while keeping a coherent MVP.
-9. planning.timeline MUST be exactly 4 lines (Frontend/Backend/Integration/Deployment) each with an integer weeks value OR for Deployment hours if very small (<1 day). Lines separated by single newlines, no extra commentary.
-10. Waterfall phase arrays: professional, concrete bullet strings (6–16 words). databaseSchema: one string per entity using pattern "Entity table: field1, field2 (Note), field3". apiEndpoints: "METHOD /path - short description".
-11. Use [] where legitimately empty. No null/undefined. No trailing commas. Must parse strictly.
-12. Category meaning: frontend=UI & client; backend=services/domain/data; integration=testing, cross-cutting quality, performance, security; deployment=infra/CI/CD/monitoring/release.
-13. Complex tasks should list enabling dependencies (at least one) unless genuinely foundational.
-14. If project qualifies as small frontend only (flag below true) you may set integration & deployment task arrays to [] and set corresponding planning timeline lines to 0.
+GLOBAL RULES:
+1. JSON ONLY. Nothing before or after the single object.
+2. Task id sequence: t1, t2, ... unique across ALL categories (global ordering). Dependencies reference only prior ids (acyclic, minimal necessary edges). Avoid long serial dependency chains.
+3. Appropriate granularity: Each task delivers a reviewable increment. Typical hours: Simple 0.25–3h, Medium 3–8h, Complex 8–16h (rarely up to 20h if cohesive). Split anything exceeding ~16h unless atomic (e.g., complex migration). No task > 24h.
+4. Complexity aligns with scope & hours. Complex tasks usually integrate multiple subsystems and declare at least one dependency unless foundational.
+5. Titles start with a domain or layer prefix when helpful (e.g., "Cart - Implement reservation workflow"). Description: concise outcome + value (<= 22 words).
+6. Keep tasks free of meta management (no "Write project plan", no standups). Include security, performance, resilience, compliance engineering tasks explicitly.
+7. Tech stack: Merge provided + inferred; include frameworks, infra, data, messaging, auth, monitoring. 6–14 items (enterprise may reach upper bound but not exceed 14 to stay focused).
+8. Overview.timeline cannot exceed user preference; if user timeline is unrealistically short for scope, narrate compression by focusing on MVP enabling core value flows (cart→checkout→order→fulfillment for commerce) while deferring advanced features implicitly (not listed).
+9. planning.timeline EXACTLY 4 lines in order (Frontend, Backend, Integration, Deployment) each: "Label: <int> weeks" (or for Deployment if <1 week, you may use hours like "Deployment: 6 hours"). Each on its own line, no extra lines.
+10. Waterfall phase arrays: professional, concrete, active voice 6–18 words each. Avoid vague filler (no "Do analysis").
+11. databaseSchema: one string per entity pattern "Entity table: field1, field2 (Note), field3" focusing on principal fields only (no exhaustive enumeration). Keep 8–20 entities (fewer for small projects).
+12. apiEndpoints: representative, not every possible variant. Format "METHOD /path - brief purpose". 12–40 endpoints depending on scope.
+13. uiDesign: per major UI surface or component cluster (e.g., "Product listing grid with adaptive filtering & skeleton states").
+14. codingStandards: items mixing conventions (naming, error handling), quality gates, security baseline (e.g., "Centralized input validation & sanitization layer").
+15. Use [] only when truly empty (e.g., integration/deployment omitted for micro frontend prototype). Never use null/undefined. No trailing commas.
+16. Avoid speculative futuristic tech; prioritize proven, scalable choices consistent with project type & scale tier.
+17. Dependencies: Only list IDs that materially gate execution (avoid noise). If parallelizable, omit dependency.
+18. If smallFrontendOnlyFlag=true: integration & deployment tasks must both be [] and planning timeline lines for those categories must be 0 weeks.
+19. Provide a balanced distribution: backend usually >= frontend for non-trivial multi-domain systems.
+20. Risk items are specific ("Payment provider latency spikes impacting checkout throughput"), not generic.
+21. Do NOT invent extra top-level properties; schema must remain exactly as defined.
+${enterpriseExtras}GENERATIVE CALIBRATION:
+- Favor pragmatic MVP enabling core user journeys first even for large scope; tasks should reflect foundations + primary workflows.
+- Reflect non-functional requirements (performance, scalability, observability, security, compliance) across analysis, design & integration tasks (not solely one bucket).
 
-RAW CONTEXT (do not over-engineer – use as grounding, not rigid math):
+RAW CONTEXT (reference; do not copy verbatim unless needed):
 projectTitle: ${input.title}
 projectType: ${input.projectType}
 description: ${input.description}
@@ -79,12 +95,13 @@ Return ONLY the JSON object.`;
 }
 
 export async function generatePlanWithGemini(input: ProjectInput): Promise<ProjectPlan> {
+  console.log('[AI Planner][Gemini] Starting generation', { title: input.title, model: GEMINI_MODEL });
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('Missing GEMINI_API_KEY');
   }
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: MODEL,
+    model: GEMINI_MODEL,
     generationConfig: {
       // Slightly higher temperature for more creative analysis/design while still deterministic enough for JSON
       temperature: 0.55,
@@ -92,8 +109,31 @@ export async function generatePlanWithGemini(input: ProjectInput): Promise<Proje
     }
   });
   const prompt = buildPrompt(input);
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+  const maxRetries = 3;
+  let attempt = 0;
+  let lastErr: any;
+  let text = '';
+  while (attempt < maxRetries) {
+    try {
+      attempt++;
+      if (attempt > 1) console.log(`[AI Planner][Gemini] Retry attempt ${attempt}`);
+      const result = await model.generateContent(prompt);
+      console.log('[AI Planner][Gemini] Raw response received');
+      text = result.response.text();
+      break; // success
+    } catch (e: any) {
+      lastErr = e;
+      const status = e?.status || e?.response?.status;
+      const retriable = status >= 500 || status === 429 || !status; // network/internal/ratelimit
+      console.warn('[AI Planner][Gemini] Attempt failed', { attempt, status, retriable });
+      if (!retriable || attempt >= maxRetries) {
+        console.error('[AI Planner][Gemini] Giving up after attempts', attempt);
+        throw e; // propagate to higher-level fallback
+      }
+      const backoffMs = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 250);
+      await new Promise(r => setTimeout(r, backoffMs));
+    }
+  }
   try {
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
@@ -138,6 +178,7 @@ export async function generatePlanWithGemini(input: ProjectInput): Promise<Proje
         design.codingStandards = ensureArray(design.codingStandards);
       }
     }
+    (json as any)._source = 'gemini';
     return json as ProjectPlan;
   } catch (e) {
     console.error('Failed to parse Gemini output', e, text);
@@ -174,7 +215,7 @@ export async function refinePlanSectionWithGemini(plan: ProjectPlan, section: st
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: MODEL,
+    model: GEMINI_MODEL,
     generationConfig: { temperature: 0.6, maxOutputTokens: 16000 }
   });
 
@@ -217,5 +258,92 @@ Begin.`;
   } catch (e) {
     console.error('Failed to parse section refine output', e, text);
     throw new Error('Gemini section refine parse error');
+  }
+}
+
+export async function generatePlanWithDeepseek(input: ProjectInput): Promise<ProjectPlan> {
+  console.log('[AI Planner][Deepseek] Starting generation', { title: input.title, model: DEEPSEEK_MODEL });
+  if (!process.env.OPENROUTER_API_KEY) throw new Error('Missing OPENROUTER_API_KEY');
+  // OpenRouter provides an OpenAI-compatible API; we just adjust baseURL & env vars
+  const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1' });
+  const prompt = buildPrompt(input);
+  // Using Responses API to unify handling; fall back to chat.completions if unsupported
+  try {
+    const resp = await client.responses.create({
+      model: DEEPSEEK_MODEL,
+      input: prompt,
+      temperature: 0.55,
+      max_output_tokens: 32000
+    } as any);
+    const text = resp.output_text || JSON.stringify(resp);
+    const parsed = parsePlanJSON(text);
+    (parsed as any)._source = 'deepseek.responses';
+    return parsed;
+  } catch (e) {
+    // Fallback via chat completion style
+    console.warn('[AI Planner][Deepseek] Responses API failed, falling back to chat completions');
+    const chat = await client.chat.completions.create({
+      model: DEEPSEEK_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.55,
+      max_tokens: 32000
+    });
+    const text = chat.choices?.[0]?.message?.content || '';
+    const parsed = parsePlanJSON(text);
+    (parsed as any)._source = 'deepseek.chat';
+    return parsed;
+  }
+}
+
+function parsePlanJSON(text: string): ProjectPlan {
+  try {
+    const jsonStart = text.indexOf('{');
+    const jsonEnd = text.lastIndexOf('}');
+    const json = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+    const addCompleted = (tasks: Task[]) => tasks.forEach(t => { if (typeof t.completed !== 'boolean') t.completed = false; });
+    addCompleted(json.tasks.frontend);
+    addCompleted(json.tasks.backend);
+    addCompleted(json.tasks.integration);
+    addCompleted(json.tasks.deployment);
+    return json as ProjectPlan;
+  } catch (e) {
+    console.error('Failed to parse model output', e, text);
+    throw new Error('Model output parse error');
+  }
+}
+
+export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
+  console.log('[AI Planner] generatePlan invoked');
+  // Default model now set to deepseek via OpenRouter unless caller overrides
+  const choice = input.modelChoice || 'deepseek';
+  console.log('[AI Planner] Model choice', choice);
+  try {
+    const primary = (choice === 'deepseek') ? 'deepseek' : 'gemini';
+    const secondary = primary === 'gemini' ? 'deepseek' : 'gemini';
+    let result: ProjectPlan | null = null;
+    try {
+      result = primary === 'gemini' ? await generatePlanWithGemini(input) : await generatePlanWithDeepseek(input);
+    } catch (e) {
+      console.warn('[AI Planner] Primary model failed, attempting fallback', { primary, error: (e as any)?.message });
+      try {
+        result = secondary === 'gemini' ? await generatePlanWithGemini(input) : await generatePlanWithDeepseek(input);
+        (result as any)._fallbackFrom = primary;
+      } catch (fallbackErr) {
+        console.error('[AI Planner] Fallback model also failed', { secondary, error: (fallbackErr as any)?.message });
+        throw e; // throw original error for clearer surface cause
+      }
+    }
+    console.log('[AI Planner] Generation succeeded', {
+      source: (result as any)._source, tasks: {
+        frontend: result.tasks.frontend.length,
+        backend: result.tasks.backend.length,
+        integration: result.tasks.integration.length,
+        deployment: result.tasks.deployment.length
+      }
+    });
+    return result;
+  } catch (e) {
+    console.error('[AI Planner] Generation failed, throwing to caller', e);
+    throw e;
   }
 }

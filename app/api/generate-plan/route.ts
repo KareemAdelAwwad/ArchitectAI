@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { generatePlanWithGemini } from '@/lib/aiPlanner';
+import { generatePlan } from '@/lib/aiPlanner';
 import { ProjectInput } from '@/types/project';
 import { ProjectInputSchema } from '@/src/domain/schemas/projectInput';
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', issues: parsed.error.issues }, { status: 400 });
     }
     const input: ProjectInput = parsed.data;
-    const plan = await generatePlanWithGemini(input);
+    const plan = await generatePlan(input);
     return NextResponse.json(plan);
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Generation failed' }, { status: 500 });
