@@ -40,88 +40,40 @@ function buildPrompt(input: ProjectInput) {
   const smallProject = (input.projectType === 'Frontend') && (budgetInfo.tier === 'micro' || budgetInfo.tier === 'low');
   /**
    * We purposely keep the structure identical to existing TS interfaces to avoid runtime parse breaks.
-   * We enrich instructions for deeper, professional, real‑world Waterfall content while keeping JSON lean.
+   * Prompt now simplified: less prescriptive numeric guidance; rely on LLM judgment with raw context.
    */
-  return `You are a senior software delivery program manager + enterprise architect.
-Create a PROFESSIONAL, REAL-WORLD GRADE WATERFALL PLAN as STRICT JSON ONLY (no markdown, no backticks) matching:
-interface ProjectPlan { overview: { title: string; description: string; projectType: string; techStack: string[]; timeline: string; }; tasks: { frontend: Task[]; backend: Task[]; integration: Task[]; deployment: Task[] }; waterfallPhases: { planning: { scope: string[]; objectives: string[]; stakeholders: string[]; timeline: string; resources: string[]; risks: string[] }; analysis: { functionalRequirements: string[]; nonFunctionalRequirements: string[]; userStories: string[]; constraints: string[]; integrations: string[] }; design: { systemArchitecture: string[]; databaseSchema: string[]; apiEndpoints: string[]; uiDesign: string[]; codingStandards: string[] } } }
-interface Task { id: string; title: string; description: string; complexity: 'Simple' | 'Medium' | 'Complex'; estimatedHours: number; dependencies: string[]; category: string; completed: boolean }
+  return `You are a senior software delivery program manager & enterprise architect.
+Produce a PROFESSIONAL WATERFALL PROJECT PLAN as STRICT JSON ONLY (no markdown/backticks) matching:
+interface ProjectPlan { overview:{ title:string; description:string; projectType:string; techStack:string[]; timeline:string }; tasks:{ frontend:Task[]; backend:Task[]; integration:Task[]; deployment:Task[] }; waterfallPhases:{ planning:{ scope:string[]; objectives:string[]; stakeholders:string[]; timeline:string; resources:string[]; risks:string[] }; analysis:{ functionalRequirements:string[]; nonFunctionalRequirements:string[]; userStories:string[]; constraints:string[]; integrations:string[] }; design:{ systemArchitecture:string[]; databaseSchema:string[]; apiEndpoints:string[]; uiDesign:string[]; codingStandards:string[] } } }
+interface Task { id:string; title:string; description:string; complexity:'Simple'|'Medium'|'Complex'; estimatedHours:number; dependencies:string[]; category:string; completed:boolean }
 
-OUTPUT RULES (CRITICAL):
-1. JSON ONLY. No prose outside JSON. Do not prefix/suffix.
-2. Use concise globally-unique task ids: t1, t2, t3 ... sequential with no gaps. All categories share the id sequence.
-3. Dependencies: only reference ids that appear EARLIER (acyclic). Keep dependencies array short (<=4) and relevant.
-4. Task volume MUST scale with budget tier (avoid overkill for tiny budgets, stay realistic for larger). Budget tier derived: ${budgetInfo.tier} (${budgetInfo.label}). Use these guidance ranges (can be slightly adjusted for domain fit). If SMALL FRONTEND-ONLY (criteria: projectType=Frontend AND budget tier micro/low) you MUST drastically simplify and MAY omit entire integration & deployment categories (set them to []):
-  - Full Stack: micro 20–30, low 30–40, mid 45–55, standard 60–75, enterprise 75–110 tasks total.
-  - Frontend OR Backend only: micro 12–18, low 18–25, mid 26–34, standard 35–45, enterprise 46–65 tasks.
-  Provide COMPREHENSIVE but NON-TRIVIAL tasks; if budget is micro/low MERGE or OMITS non-essential optimization/refinement tasks while keeping a coherent MVP. NEVER exceed upper bound by more than 5%.
-5. Task sizing & realistic hours (CRITICAL):
-  a. Complexity ↔ hours calibration (use integer or .5 where needed, never 0):
-    - Simple: 0.25–4h (tiny setup / config / small component / minor schema change). NEVER assign more than 4h to a Simple task.
-    - Medium: 5–12h (cohesive feature slice, endpoint + validation + basic tests, multi-component UI flow).
-    - Complex: 13–32h (multi-step feature requiring coordination or deep design). Anything estimated >32h MUST be decomposed.
-    (Legacy bounds 16–40h replaced for tighter realism.)
-  b. Break down over-large tasks: No single task may exceed 32h. If an effort >12h can be split into independently deliverable increments, split into multiple tasks each still outcome-focused (avoid excessive micro-tasks <0.25h).
-  c. Avoid generic buckets (e.g., "Implement backend services", "Set up entire UI"). Replace with specific deliverables (e.g., "Implement user session persistence service").
-  d. Scaffold / automation tasks must reflect modern tooling speed. Examples realistic upper bounds:
-    - "Setup Next.js project with TypeScript and Tailwind" <= 0.5h (often 0.25h)
-    - Add ESLint + Prettier config 0.5–1h
-    - Basic CI pipeline (lint + test) 1–2h
-    - Single CRUD endpoint (handler + validation + basic tests) 2–4h (Medium)
-    - Auth flow (JWT/session issuance + refresh logic) 6–10h (Medium/Complex depending on scope)
-    - Payment integration (stripe basic checkout) 8–14h (Complex if webhooks + retries)
-  e. Distribution target AFTER decomposition: 50–60% Simple, 30–40% Medium, 10–15% Complex. If project is tiny (micro tier) you may have 0–2 Complex tasks total.
-  f. Do NOT inflate hours for familiarity tasks; reflect realistic experienced engineer pace.
-6. Titles: action-oriented, specific (e.g., "Implement role-based auth middleware" not "Auth").
-7. Descriptions: 1 concise sentence (<= 180 chars) describing purpose & business/technical rationale. Avoid line breaks.
-8. Tech stack: merge provided stack + inferred realistic stack; dedupe; 6–14 items.
-9. Timeline CONSTRAINT: Preferred timeline provided by user MUST be respected (user: "${input.timeline || 'N/A'}"). OVERVIEW.timeline must NOT exceed preferred timeline upper bound (if a single number, treat as max). If raw estimates would exceed, you MUST reduce scope (merge or simplify tasks) so total estimated hours fit within preferred time using assumption: 6 productive dev hours * 5 days/week * team size (default 4 engineers unless budget tier reduces team: micro=1 dev, low=2, mid=3, standard=4, enterprise=5). Express overview.timeline as a realistic range not exceeding preferred. If preferred timeline is empty, compute normally.
-  Also produce planning.timeline (inside planning phase) as a MULTI-LINE CATEGORY BREAKDOWN with EXACTLY these 4 lines in this order and tab or single space after colon (numbers MAY be 0 where no work is required):
-Frontend: <number> week(s)
-Backend: <number> week(s)
-Integration: <number> week(s)
-Deployment: <number> (week(s)|hour(s))
-Rules for planning.timeline lines:
- - Use plural weeks if value > 1 else singular week. For hours use 'hours' plural unless exactly 1.
- - Deployment may be hours if under 8 hours total, otherwise convert to weeks (round up partial weeks to nearest half week e.g., 1.5 weeks).
- - Numbers must be integers for weeks, integers for hours.
- - No extra commentary; ONLY those four lines separated by a single newline.
-10. Waterfall phase arrays: Provide richly specific bullet strings (each 6–16 words) capturing professional detail. They MUST be arrays (even if single item). Keep them:
-   - planning.scope: major deliverables & boundaries
-   - planning.objectives: measurable outcome statements
-   - planning.stakeholders: role + interest (e.g., "Product Owner – roadmap alignment")
-   - planning.resources: critical tools/people/environment
-   - planning.risks: explicit risk + mitigation pattern ("Risk: ... | Mitigation: ...")
-   - analysis.functionalRequirements: capability statements starting with a verb
-   - analysis.nonFunctionalRequirements: quality attributes with target metric
-   - analysis.userStories: standard story format OR persona format
-   - analysis.constraints: environmental/organizational/technical constraints
-   - analysis.integrations: system/component + purpose
-  - design.systemArchitecture: layers/components interactions
-  - design.databaseSchema: ONE STRING PER ENTITY using pattern "<EntityName> table: field1, field2 (Note), field3". Notes in parentheses become field badges (keep concise like JSONB, enum, FK). No SQL DDL, just entity and comma-separated fields with optional (Note). Example: "Users table: id, tenantId (FK), email, role (enum), createdAt".
-  - design.apiEndpoints: ONE STRING PER ENDPOINT using pattern "METHOD /path - short description" (METHOD uppercase: GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD). Example: "GET /courses/:id - fetch course detail". Description after hyphen < 80 chars, action oriented.
-   - design.uiDesign: key screen or flow statements
-   - design.codingStandards: conventions/tooling (linting, patterns, security)
-11. No empty strings. Use [] if legitimately empty (avoid null/undefined).
-12. Keep total JSON size reasonable (avoid excessive verbosity) while still enterprise-detailed.
-13. Maintain consistent category allocation: UI/UX/client in frontend; domain logic/data/services in backend; cross-cutting QA, performance, security, integration tests in integration; infra, CI/CD, monitoring, scaling, release in deployment.
-14. For Complex tasks include dependencies covering enabling tasks; never isolate complex tasks without prerequisites.
-15. Ensure no trailing commas; valid strict JSON parseable by JSON.parse.
-16. NEVER exceed preferred timeline; adjust task counts/estimatedHours downward if necessary while keeping logical sequence & dependencies valid. It's permitted for any component line to be 0 weeks/hours if truly no work. For small frontend-only projects integration and deployment arrays SHOULD be [] and corresponding planning.timeline lines MUST be 0.
-PROJECT SIZE FLAG: smallFrontendOnly=${smallProject ? 'true' : 'false'} (used to decide omission of integration & deployment categories when true).
-17. When shrinking for micro/low budgets, prefer reducing optional optimization, extensive testing layers, and non-critical advanced monitoring before core functional tasks.
-18. If preferred timeline is 0 (or expresses zero), produce the absolute minimal viable set of tasks and set overview.timeline to "0 weeks" (or "0–0 weeks") with tasks having very small hours (still >0) and planning lines possibly containing 0 values.
+KEY PRINCIPLES (lightweight – rely on judgment, avoid arbitrary inflation):
+1. JSON ONLY. No text outside JSON.
+2. Task ids sequential: t1, t2, ... (unique across all categories). Dependencies only point to earlier ids (acyclic, keep concise & relevant).
+3. Provide realistic, implementation-level tasks: break large efforts into clearly deliverable units but avoid noisy micro-tasks (<0.25h). Setup tasks that modern tooling automates should use fractional hours like 0.25 or 0.5 if they truly take minutes.
+4. Hours must reflect experienced engineer effort (not padded). If something would exceed ~1 engineer-day (~6 productive hours) consider splitting unless it's inherently cohesive. Cap any single task at a reasonable size; prefer a few coherent follow-on tasks rather than one giant item.
+5. Complexity is qualitative: Simple (small change or straightforward component), Medium (multi-step feature slice), Complex (cross-cutting or multi-component coordination). Keep consistent with described hours.
+6. Titles action-oriented & specific. Descriptions: one concise business/technical rationale sentence.
+7. Keep techStack realistic (merge given + inferred) 6–14 items.
+8. Overview.timeline MUST respect user's preferred timeline (can't exceed). If timeline preference implies extreme constraint, reduce/merge scope while keeping a coherent MVP.
+9. planning.timeline MUST be exactly 4 lines (Frontend/Backend/Integration/Deployment) each with an integer weeks value OR for Deployment hours if very small (<1 day). Lines separated by single newlines, no extra commentary.
+10. Waterfall phase arrays: professional, concrete bullet strings (6–16 words). databaseSchema: one string per entity using pattern "Entity table: field1, field2 (Note), field3". apiEndpoints: "METHOD /path - short description".
+11. Use [] where legitimately empty. No null/undefined. No trailing commas. Must parse strictly.
+12. Category meaning: frontend=UI & client; backend=services/domain/data; integration=testing, cross-cutting quality, performance, security; deployment=infra/CI/CD/monitoring/release.
+13. Complex tasks should list enabling dependencies (at least one) unless genuinely foundational.
+14. If project qualifies as small frontend only (flag below true) you may set integration & deployment task arrays to [] and set corresponding planning timeline lines to 0.
 
-PROJECT INPUT CONTEXT:
-Title: ${input.title}
-Type: ${input.projectType}
-Description: ${input.description}
-Target Users: ${input.targetUsers}
-Timeline Preference: ${input.timeline}
-Budget: ${input.budget}
-Specific Requirements: ${input.specificRequirements}
-User Provided Tech Stack: ${input.techStack.join(', ') || 'None'}
- Derived Budget Tier: ${budgetInfo.tier}
+RAW CONTEXT (do not over-engineer – use as grounding, not rigid math):
+projectTitle: ${input.title}
+projectType: ${input.projectType}
+description: ${input.description}
+targetUsers: ${input.targetUsers}
+timelinePreferenceRaw: ${input.timeline || 'N/A'}
+budgetRaw: ${input.budget || 'N/A'}
+specificRequirements: ${input.specificRequirements || 'None'}
+userProvidedTechStack: ${input.techStack.join(', ') || 'None'}
+budgetTierHeuristic: ${budgetInfo.tier}
+smallFrontendOnlyFlag: ${smallProject ? 'true' : 'false'}
 
 Return ONLY the JSON object.`;
 }
