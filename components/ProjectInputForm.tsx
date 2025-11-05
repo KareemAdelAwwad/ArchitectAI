@@ -85,8 +85,8 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
 
   const next = () => { if (step < steps.length - 1 && canGoNext()) setStep(step + 1); };
   const back = () => { if (step > 0) setStep(step - 1); };
- 
-   const populateWithBlueprint = () => {
+
+  const populateWithBlueprint = () => {
     setFormData({
       title: "AI-Powered Personal Finance Dashboard",
       description: "A web application that connects to users' bank accounts (via Plaid API) to automatically categorize transactions, visualize spending habits, and provide AI-driven insights for savings and investments. Key features include budget tracking, goal setting, and personalized financial advice.",
@@ -102,9 +102,9 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
     setStep(steps.length - 1);
   };
 
-   const descriptionCharCount = formData.description?.length || 0;
- 
-   return (
+  const descriptionCharCount = formData.description?.length || 0;
+
+  return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Stepper */}
       <div className="flex flex-col gap-3">
@@ -164,7 +164,8 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                 <SelectContent>
                   <SelectItem value="deepseek">Deepseek R1</SelectItem>
                   <SelectItem value="gemini">
-                    <s>Gemini 2.5 Pro</s> <span className="text-xs text-neutral-500">(deprecated)</span>
+                    <s>Gemini 2.5 Flash</s>
+                    {/* <span className="text-xs text-neutral-500">(deprecated)</span> */}
                   </SelectItem>
                 </SelectContent>
               </Select>

@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 
 // Default model names
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+const GEMINI_MODEL = process.env.GEMINI_MODEL!;
 // Model used via OpenRouter (DeepSeek served through OpenRouter). Uses OPENROUTER_* env vars instead of OPENAI_* now.
 const DEEPSEEK_MODEL = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-r1-0528:free';
 
