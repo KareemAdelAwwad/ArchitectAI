@@ -325,9 +325,13 @@ const generateTasks = (input: ProjectInput): {
   const deployment: Task[] = [];
   const description = input.description.toLowerCase();
 
+  type TaskInput = Omit<Task, 'id' | 'completed' | 'dependencies'> & {
+    dependencies?: Array<string | null | undefined>;
+  };
+
   const addTask = (
     bucket: Task[],
-    task: Omit<Task, 'id' | 'completed'> & { dependencies?: Array<string | null | undefined> }
+    task: TaskInput
   ): string => {
     const id = generateUniqueId();
     const dependencies = (task.dependencies || []).filter((dep): dep is string => typeof dep === 'string' && dep.length > 0);
