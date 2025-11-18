@@ -164,7 +164,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                 <SelectContent>
                   <SelectItem value="deepseek">Deepseek R1</SelectItem>
                   <SelectItem value="gemini">
-                    Gemini 2.5 Flash
+                    Gemini 2.5 Pro
                     {/* <span className="text-xs text-neutral-500">(deprecated)</span> */}
                   </SelectItem>
                 </SelectContent>
