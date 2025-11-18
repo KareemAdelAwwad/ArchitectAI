@@ -57,6 +57,7 @@ export default function Sidebar({
   const [loading, setLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<{ type: 'delete' | 'leave'; planId: string } | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (session?.user) {
@@ -140,8 +141,6 @@ export default function Sidebar({
   const shimmer = 'relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_2s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent';
 
   if (!session?.user) return null;
-
-  const prefersReducedMotion = useReducedMotion();
 
   return (
     <>

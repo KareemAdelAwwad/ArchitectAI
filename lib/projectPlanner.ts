@@ -323,282 +323,249 @@ const generateTasks = (input: ProjectInput): {
   const backend: Task[] = [];
   const integration: Task[] = [];
   const deployment: Task[] = [];
+  const description = input.description.toLowerCase();
+
+  const addTask = (
+    bucket: Task[],
+    task: Omit<Task, 'id' | 'completed'> & { dependencies?: Array<string | null | undefined> }
+  ): string => {
+    const id = generateUniqueId();
+    const dependencies = (task.dependencies || []).filter((dep): dep is string => typeof dep === 'string' && dep.length > 0);
+    bucket.push({
+      id,
+      title: task.title,
+      description: task.description,
+      complexity: task.complexity,
+      estimatedHours: task.estimatedHours,
+      dependencies,
+      category: task.category,
+      completed: false
+    });
+    return id;
+  };
+
+  let authUiTaskId: string | null = null;
+  let crudApiTaskId: string | null = null;
+  let connectFrontBackendTaskId: string | null = null;
+  let configureProdTaskId: string | null = null;
 
   // Frontend Tasks
   if (input.projectType === 'Frontend' || input.projectType === 'Full Stack') {
-    frontend.push(
-      {
-        id: generateUniqueId(),
-        title: 'Set up Next.js project with TypeScript',
-        description: 'Initialize Next.js application with TypeScript configuration, ESLint, and Prettier',
-        complexity: 'Simple',
-        estimatedHours: 2,
-        dependencies: [],
-        category: 'setup',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Configure Tailwind CSS and UI component library',
-        description: 'Set up Tailwind CSS with custom configuration and integrate shadcn/ui components',
-        complexity: 'Simple',
-        estimatedHours: 3,
-        dependencies: ['Set up Next.js project'],
-        category: 'styling',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Create responsive layout and navigation',
-        description: 'Build main layout components with responsive navigation, header, and footer',
-        complexity: 'Medium',
-        estimatedHours: 8,
-        dependencies: ['Configure Tailwind CSS'],
-        category: 'layout',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Implement authentication UI',
-        description: 'Create login, registration, and user profile components with form validation',
-        complexity: 'Medium',
-        estimatedHours: 12,
-        dependencies: ['Create responsive layout'],
-        category: 'auth',
-        completed: false
-      }
-    );
+    const setupId = addTask(frontend, {
+      title: 'Set up Next.js project with TypeScript',
+      description: 'Initialize Next.js application with TypeScript configuration, ESLint, and Prettier',
+      complexity: 'Simple',
+      estimatedHours: 2,
+      dependencies: [],
+      category: 'setup'
+    });
+    const tailwindId = addTask(frontend, {
+      title: 'Configure Tailwind CSS and UI component library',
+      description: 'Set up Tailwind CSS with custom configuration and integrate shadcn/ui components',
+      complexity: 'Simple',
+      estimatedHours: 3,
+      dependencies: [setupId],
+      category: 'styling'
+    });
+    const layoutId = addTask(frontend, {
+      title: 'Create responsive layout and navigation',
+      description: 'Build main layout components with responsive navigation, header, and footer',
+      complexity: 'Medium',
+      estimatedHours: 8,
+      dependencies: [tailwindId],
+      category: 'layout'
+    });
+    authUiTaskId = addTask(frontend, {
+      title: 'Implement authentication UI',
+      description: 'Create login, registration, and user profile components with form validation',
+      complexity: 'Medium',
+      estimatedHours: 12,
+      dependencies: [layoutId],
+      category: 'auth'
+    });
 
-    // Add project-specific frontend tasks based on description
-    if (input.description.toLowerCase().includes('dashboard')) {
-      frontend.push({
-        id: generateUniqueId(),
+    if (description.includes('dashboard')) {
+      addTask(frontend, {
         title: 'Build admin dashboard interface',
         description: 'Create dashboard layout with sidebar, charts, and data tables for administrative functions',
         complexity: 'Complex',
         estimatedHours: 16,
-        dependencies: ['Implement authentication UI'],
-        category: 'dashboard',
-        completed: false
+        dependencies: [authUiTaskId],
+        category: 'dashboard'
       });
     }
 
-    if (input.description.toLowerCase().includes('form')) {
-      frontend.push({
-        id: generateUniqueId(),
+    if (description.includes('form')) {
+      addTask(frontend, {
         title: 'Create dynamic form components',
         description: 'Build reusable form components with validation, file uploads, and multi-step functionality',
         complexity: 'Medium',
         estimatedHours: 10,
-        dependencies: ['Create responsive layout'],
-        category: 'forms',
-        completed: false
+        dependencies: [layoutId],
+        category: 'forms'
       });
     }
 
-    if (input.description.toLowerCase().includes('search')) {
-      frontend.push({
-        id: generateUniqueId(),
+    if (description.includes('search')) {
+      addTask(frontend, {
         title: 'Implement search and filtering interface',
         description: 'Create search bar with autocomplete, filters, and result pagination',
         complexity: 'Medium',
         estimatedHours: 8,
-        dependencies: ['Create responsive layout'],
-        category: 'search',
-        completed: false
+        dependencies: [layoutId],
+        category: 'search'
       });
     }
   }
 
   // Backend Tasks
   if (input.projectType === 'Backend' || input.projectType === 'Full Stack') {
-    backend.push(
-      {
-        id: generateUniqueId(),
-        title: 'Set up Node.js API server with Express',
-        description: 'Initialize Express server with middleware, error handling, and request validation',
-        complexity: 'Simple',
-        estimatedHours: 4,
-        dependencies: [],
-        category: 'setup',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Configure database connection and ORM',
-        description: 'Set up PostgreSQL connection with Prisma ORM and create initial database schema',
-        complexity: 'Medium',
-        estimatedHours: 6,
-        dependencies: ['Set up Node.js API server'],
-        category: 'database',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Implement authentication system',
-        description: 'Create JWT-based authentication with password hashing, session management, and middleware',
-        complexity: 'Complex',
-        estimatedHours: 12,
-        dependencies: ['Configure database connection'],
-        category: 'auth',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'Build CRUD API endpoints',
-        description: 'Create RESTful API endpoints for core entities with validation and error handling',
-        complexity: 'Medium',
-        estimatedHours: 10,
-        dependencies: ['Implement authentication system'],
-        category: 'api',
-        completed: false
-      }
-    );
+    const apiSetupId = addTask(backend, {
+      title: 'Set up Node.js API server with Express',
+      description: 'Initialize Express server with middleware, error handling, and request validation',
+      complexity: 'Simple',
+      estimatedHours: 4,
+      dependencies: [],
+      category: 'setup'
+    });
+    const dbConfigId = addTask(backend, {
+      title: 'Configure database connection and ORM',
+      description: 'Set up PostgreSQL connection with Prisma ORM and create initial database schema',
+      complexity: 'Medium',
+      estimatedHours: 6,
+      dependencies: [apiSetupId],
+      category: 'database'
+    });
+    const authSystemId = addTask(backend, {
+      title: 'Implement authentication system',
+      description: 'Create JWT-based authentication with password hashing, session management, and middleware',
+      complexity: 'Complex',
+      estimatedHours: 12,
+      dependencies: [dbConfigId],
+      category: 'auth'
+    });
+    crudApiTaskId = addTask(backend, {
+      title: 'Build CRUD API endpoints',
+      description: 'Create RESTful API endpoints for core entities with validation and error handling',
+      complexity: 'Medium',
+      estimatedHours: 10,
+      dependencies: [authSystemId],
+      category: 'api'
+    });
 
-    // Add specific backend tasks based on description
-    if (input.description.toLowerCase().includes('payment')) {
-      backend.push({
-        id: generateUniqueId(),
+    if (description.includes('payment')) {
+      addTask(backend, {
         title: 'Integrate payment processing',
         description: 'Implement Stripe integration with webhook handling for secure payment processing',
         complexity: 'Complex',
         estimatedHours: 14,
-        dependencies: ['Build CRUD API endpoints'],
-        category: 'payment',
-        completed: false
+        dependencies: [crudApiTaskId],
+        category: 'payment'
       });
     }
 
-    if (input.description.toLowerCase().includes('email')) {
-      backend.push({
-        id: generateUniqueId(),
+    if (description.includes('email')) {
+      addTask(backend, {
         title: 'Set up email notification system',
         description: 'Configure email service with templates for user notifications and system alerts',
         complexity: 'Medium',
         estimatedHours: 6,
-        dependencies: ['Implement authentication system'],
-        category: 'notifications',
-        completed: false
+        dependencies: [authSystemId],
+        category: 'notifications'
       });
     }
 
-    if (input.description.toLowerCase().includes('upload') || input.description.toLowerCase().includes('file')) {
-      backend.push({
-        id: generateUniqueId(),
+    if (description.includes('upload') || description.includes('file')) {
+      addTask(backend, {
         title: 'Implement file upload system',
         description: 'Create secure file upload endpoints with validation, storage, and CDN integration',
         complexity: 'Medium',
         estimatedHours: 8,
-        dependencies: ['Build CRUD API endpoints'],
-        category: 'files',
-        completed: false
+        dependencies: [crudApiTaskId],
+        category: 'files'
       });
     }
   }
 
   // Integration & Testing Tasks
-  integration.push(
-    {
-      id: generateUniqueId(),
-      title: 'Set up automated testing framework',
-      description: 'Configure Jest and React Testing Library with unit and integration test examples',
-      complexity: 'Medium',
-      estimatedHours: 6,
-      dependencies: [],
-      category: 'testing',
-      completed: false
-    },
-    {
-      id: generateUniqueId(),
-      title: 'Implement error handling and logging',
-      description: 'Set up comprehensive error handling with logging service and user-friendly error pages',
-      complexity: 'Medium',
-      estimatedHours: 8,
-      dependencies: [],
-      category: 'monitoring',
-      completed: false
-    }
-  );
+  addTask(integration, {
+    title: 'Set up automated testing framework',
+    description: 'Configure Jest and React Testing Library with unit and integration test examples',
+    complexity: 'Medium',
+    estimatedHours: 6,
+    dependencies: [],
+    category: 'testing'
+  });
+  addTask(integration, {
+    title: 'Implement error handling and logging',
+    description: 'Set up comprehensive error handling with logging service and user-friendly error pages',
+    complexity: 'Medium',
+    estimatedHours: 8,
+    dependencies: [],
+    category: 'monitoring'
+  });
 
   if (input.projectType === 'Full Stack') {
-    integration.push(
-      {
-        id: generateUniqueId(),
-        title: 'Connect frontend to backend APIs',
-        description: 'Integrate frontend components with backend endpoints and implement error handling',
-        complexity: 'Medium',
-        estimatedHours: 10,
-        dependencies: ['Build CRUD API endpoints', 'Implement authentication UI'],
-        category: 'integration',
-        completed: false
-      },
-      {
-        id: generateUniqueId(),
-        title: 'End-to-end testing setup',
-        description: 'Configure Playwright or Cypress for automated E2E testing of critical user flows',
-        complexity: 'Complex',
-        estimatedHours: 12,
-        dependencies: ['Connect frontend to backend APIs'],
-        category: 'e2e-testing',
-        completed: false
-      }
-    );
+    connectFrontBackendTaskId = addTask(integration, {
+      title: 'Connect frontend to backend APIs',
+      description: 'Integrate frontend components with backend endpoints and implement error handling',
+      complexity: 'Medium',
+      estimatedHours: 10,
+      dependencies: [crudApiTaskId, authUiTaskId],
+      category: 'integration'
+    });
+    addTask(integration, {
+      title: 'End-to-end testing setup',
+      description: 'Configure Playwright or Cypress for automated E2E testing of critical user flows',
+      complexity: 'Complex',
+      estimatedHours: 12,
+      dependencies: [connectFrontBackendTaskId],
+      category: 'e2e-testing'
+    });
   }
 
   // Deployment & DevOps Tasks
-  deployment.push(
-    {
-      id: generateUniqueId(),
-      title: 'Set up CI/CD pipeline',
-      description: 'Configure GitHub Actions for automated testing, building, and deployment',
-      complexity: 'Medium',
-      estimatedHours: 6,
-      dependencies: [],
-      category: 'cicd',
-      completed: false
-    },
-    {
-      id: generateUniqueId(),
-      title: 'Configure production environment',
-      description: 'Set up production hosting on Vercel/Netlify with environment variables and domain configuration',
-      complexity: 'Medium',
-      estimatedHours: 4,
-      dependencies: ['Set up CI/CD pipeline'],
-      category: 'hosting',
-      completed: false
-    },
-    {
-      id: generateUniqueId(),
-      title: 'Implement monitoring and analytics',
-      description: 'Set up application monitoring, performance tracking, and user analytics',
-      complexity: 'Simple',
-      estimatedHours: 4,
-      dependencies: ['Configure production environment'],
-      category: 'monitoring',
-      completed: false
-    },
-    {
-      id: generateUniqueId(),
-      title: 'Security audit and optimization',
-      description: 'Conduct security review, implement security headers, and optimize performance',
-      complexity: 'Medium',
-      estimatedHours: 8,
-      dependencies: ['Configure production environment'],
-      category: 'security',
-      completed: false
-    }
-  );
+  const ciCdTaskId = addTask(deployment, {
+    title: 'Set up CI/CD pipeline',
+    description: 'Configure GitHub Actions for automated testing, building, and deployment',
+    complexity: 'Medium',
+    estimatedHours: 6,
+    dependencies: [],
+    category: 'cicd'
+  });
+  configureProdTaskId = addTask(deployment, {
+    title: 'Configure production environment',
+    description: 'Set up production hosting on Vercel/Netlify with environment variables and domain configuration',
+    complexity: 'Medium',
+    estimatedHours: 4,
+    dependencies: [ciCdTaskId],
+    category: 'hosting'
+  });
+  addTask(deployment, {
+    title: 'Implement monitoring and analytics',
+    description: 'Set up application monitoring, performance tracking, and user analytics',
+    complexity: 'Simple',
+    estimatedHours: 4,
+    dependencies: [configureProdTaskId],
+    category: 'monitoring'
+  });
+  addTask(deployment, {
+    title: 'Security audit and optimization',
+    description: 'Conduct security review, implement security headers, and optimize performance',
+    complexity: 'Medium',
+    estimatedHours: 8,
+    dependencies: [configureProdTaskId],
+    category: 'security'
+  });
 
   if (input.projectType === 'Backend' || input.projectType === 'Full Stack') {
-    deployment.push({
-      id: generateUniqueId(),
+    addTask(deployment, {
       title: 'Database backup and migration strategy',
       description: 'Set up automated database backups and create migration deployment strategy',
       complexity: 'Medium',
       estimatedHours: 6,
-      dependencies: ['Configure production environment'],
-      category: 'database-ops',
-      completed: false
+      dependencies: [configureProdTaskId],
+      category: 'database-ops'
     });
   }
 

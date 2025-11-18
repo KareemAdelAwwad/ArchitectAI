@@ -25,7 +25,7 @@ const commonTechStacks = {
 };
 
 export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
-  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [], modelChoice: 'deepseek' });
+  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [], modelChoice: 'gemini' });
   const [customTech, setCustomTech] = useState('');
   const [step, setStep] = useState(0); // 0 Basic, 1 Stack, 2 Details, 3 Review
 

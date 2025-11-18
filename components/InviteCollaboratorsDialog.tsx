@@ -49,7 +49,7 @@ export const InviteCollaboratorsDialog: React.FC<Props> = ({ planId, isOwner, tr
     return collabs.filter(c => (c.email || c.name || '').toLowerCase().includes(f));
   }, [collabs, filter]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/plans/${planId}/collaborators`);
       if (res.ok) {
@@ -58,10 +58,10 @@ export const InviteCollaboratorsDialog: React.FC<Props> = ({ planId, isOwner, tr
         setCollabs(data.collaborators || []);
       }
     } catch { /* ignore */ }
-  };
-  useEffect(() => { if (open) load(); }, [open]);
+  }, [planId]);
+  useEffect(() => { if (open) load(); }, [open, load]);
 
-  const invite = async () => {
+  const invite = useCallback(async () => {
     if (!email.trim() || !emailValid) return;
     setLoading(true);
     try {
@@ -78,7 +78,7 @@ export const InviteCollaboratorsDialog: React.FC<Props> = ({ planId, isOwner, tr
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, emailValid, planId, role, toast, onChanged]);
 
   const generateLink = async () => {
     setGeneratingLink(true);
@@ -133,7 +133,7 @@ export const InviteCollaboratorsDialog: React.FC<Props> = ({ planId, isOwner, tr
     if (e.key === 'Enter' && email && emailValid && !emailExists && isOwner && !loading) {
       invite();
     }
-  }, [email, emailValid, emailExists, isOwner, loading]);
+  }, [email, emailValid, emailExists, isOwner, loading, invite]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

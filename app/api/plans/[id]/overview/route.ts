@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 
@@ -7,6 +8,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!ObjectId.isValid(params.id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
     const body = await req.json();
     const { techStack } = body as { techStack?: string[] };
     if (!Array.isArray(techStack)) return NextResponse.json({ error: 'techStack must be array' }, { status: 400 });

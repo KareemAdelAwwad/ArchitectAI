@@ -44,9 +44,9 @@ type HomeInit = {
   initialCollaboratorRole?: 'viewer' | 'editor' | null;
 };
 declare global { interface Window { __HOME_INIT__?: HomeInit; } }
-function HomeClientInternal() {
-  // Read any server-provided initial state injected by /plans/[id] page via window global.
-  const init = (typeof window !== 'undefined' ? (window.__HOME_INIT__ || {}) : {}) as HomeInit;
+function HomeClientInternal(props: HomeInit = {}) {
+  const windowInit = (typeof window !== 'undefined' ? (window.__HOME_INIT__ || {}) : {}) as HomeInit;
+  const init = { ...windowInit, ...props };
   const initialPlan = init.initialPlan;
   const initialPlanId = init.initialPlanId;
   const initialIsOwner = init.initialIsOwner ?? false;
@@ -975,4 +975,6 @@ function HomeClientInternal() {
 }
 
 // Root page (/) supplies no initial props.
-export default function Home() { return <HomeClientInternal />; }
+export default function Home(props: HomeInit = {}) {
+  return <HomeClientInternal {...props} />;
+}

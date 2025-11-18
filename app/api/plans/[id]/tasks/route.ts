@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { updateTaskCompletion } from '@/src/application/usecases/updateTaskCompletion';
@@ -8,6 +9,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!ObjectId.isValid(params.id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
     const body = await request.json();
     const { taskId } = body as { taskId?: string };

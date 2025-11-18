@@ -1,5 +1,4 @@
 import Home from '@/app/page';
-import Script from 'next/script';
 import { notFound, redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -52,14 +51,12 @@ export default async function PlanEntryPage({ params, searchParams }: PageProps)
   const collaboratorRole = !isOwner && Array.isArray(stored.collaborators)
     ? stored.collaborators.find((c: any) => c.userId === session.user.id)?.role || null
     : null;
-  const init = {
-    initialPlan: stored.plan,
-    initialPlanId: stored._id.toString(),
-    initialIsOwner: isOwner,
-    initialCollaboratorRole: collaboratorRole
-  };
-  return <>
-    <Script id="home-init" strategy="beforeInteractive">{`window.__HOME_INIT__ = ${JSON.stringify(init)};`}</Script>
-    <Home />
-  </>;
+  return (
+    <Home
+      initialPlan={stored.plan}
+      initialPlanId={stored._id.toString()}
+      initialIsOwner={isOwner}
+      initialCollaboratorRole={collaboratorRole}
+    />
+  );
 }

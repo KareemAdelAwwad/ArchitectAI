@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { generateQuickStartPhase } from '@/lib/quickStartPlanner';
@@ -19,6 +20,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
     const { planId, fullPlan, packageManager, force } = body as { planId?: string; fullPlan?: ProjectPlan; packageManager?: 'npm' | 'yarn' | 'pnpm' | 'bun'; force?: boolean };
+    if (planId && !ObjectId.isValid(planId)) {
+      return NextResponse.json({ error: 'Invalid planId' }, { status: 400 });
+    }
     let plan: ProjectPlan | null = null;
     const repo = new MongoPlanRepository();
     if (planId) {

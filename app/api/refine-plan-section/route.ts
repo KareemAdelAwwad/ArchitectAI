@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { persistRefinedSection } from '@/src/application/usecases/refineSection';
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     let plan: ProjectPlan | null = null;
     const repo = new MongoPlanRepository();
     if (planId) {
+      if (!ObjectId.isValid(planId)) return NextResponse.json({ error: 'Invalid planId' }, { status: 400 });
       const stored = await repo.get(session.user.id, planId);
       if (!stored) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
       const isOwner = stored.userId === session.user.id;
