@@ -1,24 +1,22 @@
 import { ProjectPlan, QuickStartPhase } from '@/types/project';
 import fs from 'fs';
 import path from 'path';
-// @ts-ignore - OpenAI types may not resolve correctly depending on version
-import OpenAI from 'openai';
-// NOTE: Removed custom timeout wrapper to avoid premature aborts on Vercel/local.
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Retain only minimal package manager inference; all other logic-based planning removed per request.
 function inferPackageManager(): QuickStartPhase['packageManager'] {
-  try {
-    const root = process.cwd();
-    if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) return 'pnpm';
-    if (fs.existsSync(path.join(root, 'yarn.lock'))) return 'yarn';
-    if (fs.existsSync(path.join(root, 'bun.lockb'))) return 'bun';
-    if (fs.existsSync(path.join(root, 'package-lock.json'))) return 'npm';
-  } catch { }
-  return 'npm';
+	try {
+		const root = process.cwd();
+		if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) return 'pnpm';
+		if (fs.existsSync(path.join(root, 'yarn.lock'))) return 'yarn';
+		if (fs.existsSync(path.join(root, 'bun.lockb'))) return 'bun';
+		if (fs.existsSync(path.join(root, 'package-lock.json'))) return 'npm';
+	} catch { }
+	return 'npm';
 }
 
 function minimalFallback(plan: ProjectPlan, pm: QuickStartPhase['packageManager']): QuickStartPhase {
-  const content = `# COPILOT EDITS OPERATIONAL GUIDELINES
+	const content = `# COPILOT EDITS OPERATIONAL GUIDELINES
  
  ## PRIME DIRECTIVE
  	Avoid working on more than one file at a time.
@@ -221,135 +219,133 @@ function minimalFallback(plan: ProjectPlan, pm: QuickStartPhase['packageManager'
  	- Limit privileges and enforce role-based access control.
  	- Implement detailed internal logging and monitoring.
  `;
-  return {
-    installCommands: [
-      `${pm === 'yarn' ? 'yarn add' : pm === 'pnpm' ? 'pnpm add' : pm === 'bun' ? 'bun add' : 'npm install'} next react react-dom`,
-      `${pm === 'yarn' ? 'yarn add -D' : pm === 'pnpm' ? 'pnpm add -D' : pm === 'bun' ? 'bun add -d' : 'npm install -D'} typescript eslint prettier`
-    ],
-    copilotInstructions: {
-      filename: 'copilot-instructions.md',
-      content
-    },
-    packageScripts: {
-      dev: 'next dev',
-      build: 'next build',
-      start: 'next start',
-      lint: 'next lint'
-    },
-    envExample: [
-      '# Minimal env',
-      'NODE_ENV=development',
-      'NEXTAUTH_SECRET=changeme',
-      'NEXTAUTH_URL=http://localhost:3000'
-    ],
-    packageManager: pm,
-    generatedAt: new Date().toISOString()
-  };
+	return {
+		installCommands: [
+			`${pm === 'yarn' ? 'yarn add' : pm === 'pnpm' ? 'pnpm add' : pm === 'bun' ? 'bun add' : 'npm install'} next react react-dom`,
+			`${pm === 'yarn' ? 'yarn add -D' : pm === 'pnpm' ? 'pnpm add -D' : pm === 'bun' ? 'bun add -d' : 'npm install -D'} typescript eslint prettier`
+		],
+		copilotInstructions: {
+			filename: 'copilot-instructions.md',
+			content
+		},
+		packageScripts: {
+			dev: 'next dev',
+			build: 'next build',
+			start: 'next start',
+			lint: 'next lint'
+		},
+		envExample: [
+			'# Minimal env',
+			'NODE_ENV=development',
+			'NEXTAUTH_SECRET=changeme',
+			'NEXTAUTH_URL=http://localhost:3000'
+		],
+		packageManager: pm,
+		generatedAt: new Date().toISOString()
+	};
 }
 
 function extractJsonBlock(text: string): any {
-  const REQUIRED_KEYS = ['installCommands', 'copilotInstructions', 'packageScripts', 'envExample', 'packageManager', 'generatedAt'];
-  const tryParse = (raw: string) => {
-    const cleaned = raw.trim()
-      .replace(/^```json/i, '')
-      .replace(/^```/, '')
-      .replace(/```$/, '')
-      .trim();
-    if (!cleaned.startsWith('{') || !cleaned.endsWith('}')) throw new Error('Not object');
-    const obj = JSON.parse(cleaned);
-    if (REQUIRED_KEYS.every(k => k in obj)) return obj;
-    // still accept if at least two primary keys exist; fill later
-    if (['installCommands', 'copilotInstructions'].some(k => k in obj)) return obj;
-    throw new Error('Missing required keys');
-  };
-  // 1. Code fence blocks first
-  const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
-  let m: RegExpExecArray | null;
-  while ((m = fenceRegex.exec(text)) !== null) {
-    try { return tryParse(m[1]); } catch { /* continue */ }
-  }
-  // 2. Balanced brace scan
-  for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
-    let depth = 0;
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          const candidate = text.slice(start, i + 1);
-          try { return tryParse(candidate); } catch { break; }
-        }
-      }
-    }
-  }
-  throw new Error('No valid JSON object found');
+	const REQUIRED_KEYS = ['installCommands', 'copilotInstructions', 'packageScripts', 'envExample', 'packageManager', 'generatedAt'];
+	const tryParse = (raw: string) => {
+		const cleaned = raw.trim()
+			.replace(/^```json/i, '')
+			.replace(/^```/, '')
+			.replace(/```$/, '')
+			.trim();
+		if (!cleaned.startsWith('{') || !cleaned.endsWith('}')) throw new Error('Not object');
+		const obj = JSON.parse(cleaned);
+		if (REQUIRED_KEYS.every(k => k in obj)) return obj;
+		// still accept if at least two primary keys exist; fill later
+		if (['installCommands', 'copilotInstructions'].some(k => k in obj)) return obj;
+		throw new Error('Missing required keys');
+	};
+	// 1. Code fence blocks first
+	const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi;
+	let m: RegExpExecArray | null;
+	while ((m = fenceRegex.exec(text)) !== null) {
+		try { return tryParse(m[1]); } catch { /* continue */ }
+	}
+	// 2. Balanced brace scan
+	for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+		let depth = 0;
+		for (let i = start; i < text.length; i++) {
+			const ch = text[i];
+			if (ch === '{') depth++;
+			else if (ch === '}') {
+				depth--;
+				if (depth === 0) {
+					const candidate = text.slice(start, i + 1);
+					try { return tryParse(candidate); } catch { break; }
+				}
+			}
+		}
+	}
+	throw new Error('No valid JSON object found');
 }
 
 async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY');
-  const pm = packageManager || inferPackageManager();
-  const client = new OpenAI({
-    apiKey,
-    baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
-    defaultHeaders: {
-      ...(process.env.APP_URL ? { 'HTTP-Referer': process.env.APP_URL } : {}),
-      'X-Title': 'ArchitectAI'
-    }
-  } as any);
-  const minimalContext = {
-    techStack: plan.overview.techStack,
-    tasks: plan.tasks
-  };
-  const ctxJson = JSON.stringify(minimalContext);
-  const system = 'You are a senior full-stack architect. Output ONLY raw JSON for a Quick Start guide (no markdown fences).';
-  const user = `Produce a single JSON object with shape {"installCommands":string[],"copilotInstructions":{"filename":string,"content":string},"packageScripts":Record<string,string>,"envExample":string[],"packageManager":"npm"|"yarn"|"pnpm"|"bun","generatedAt":string} for packageManager='${pm}'.\n\nABSOLUTE RULES:\n- Output ONLY raw JSON (no markdown fences, no commentary before/after).\n- JSON must be syntactically valid on first parse.\n- Do NOT escape markdown characters inside copilotInstructions.content unnecessarily.\n- Keep copilotInstructions.content under 170 lines (hard cap) and < 12,000 characters.\n- Focus content on actionable quick start guidance only. No motivational fluff.\n- Use the provided tech stack ONLY for dependencies/scripts.\n\nCONTENT FORMAT SPEC FOR copilotInstructions.content (Markdown):\n# Project Quick Start\n1. Overview (1 short paragraph: purpose of the plan)\n2. Tech Stack (bulleted list using plan.overview.techStack)\n3. Install\n   - List install commands (these MUST mirror installCommands array exactly, each as inline code)\n4. Scripts\n   - Table or bullet list of script name => description (infer concise description)\n5. Environment Variables\n   - Bullet each variable: NAME - purpose (must mirror envExample list; do not invent extras)\n   - Provide a fenced shell snippet with example exports (.env style, no comments inline)\n6. Development Workflow\n   - Steps: Plan -> Scaffold -> Implement -> Test -> Review -> Merge -> Deploy\n   - Each step: 1 concise actionable sentence\n7. Coding Standards\n   - TypeScript / React rules (imports order, naming, hooks rules, no default export if not needed, etc.)\n   - Linting & formatting (mention ESLint + Prettier)\n   - Commit convention (Conventional Commits pattern with examples)\n8. Architecture Outline\n   - Describe (Domain, Application, Infrastructure, UI) in short bullets\n9. Task Types\n   - Feature, Refactor, Bug, Chore, Test (each: one-line definition)\n10. Vibe Coding Section (AI-Generated)\n   - Include a section generated by you (the AI) that sets a collaborative and encouraging tone for the development process. This can include a motivational quote, a brief note on teamwork, or a fun fact related to the project's tech stack.\n11. AI Collaboration Protocol\n   - Request Format, Edit Plan Requirement (1..n), Single-change commits, Review prompts\n12. Definition of Done\n   - Bullet checklist: tests pass, types clean, accessibility baseline, security review, docs updated\n13. Security & Compliance\n   - Input validation, auth (if present), secrets handling, dependency updates cadence\n14. Testing Strategy\n   - Pyramid: unit > integration > e2e (brief) + what to test vs skip\n15. Performance & Observability\n   - Metrics to watch, logging guidance (structured), avoid premature optimization notes\n16. Accessibility Checklist\n   - Bullets: semantic HTML, aria-labels, color contrast, focus order, keyboard nav\n17. Next Suggested Actions\n   - 3 actionable next tasks derived from the earliest unstarted high-level tasks in provided plan.tasks (truncate each to < 80 chars)\n\nCONSTRAINTS & VALIDATION:\n- copilotInstructions.filename MUST be "copilot-instructions.md" exactly.\n- No section numbers should contain trailing periods.\n- No empty sections. If data missing, omit the bullet instead of fabricating.\n- envExample MUST NOT include placeholder secrets unless implied (auth/db/third-party keys).\n- generatedAt: current ISO 8601 timestamp.\n- installCommands: must include framework core dependencies from stack only (avoid duplicates).\n- Scripts: include dev/build/start/lint plus test if testing libs appear in stack.\n\nOPTIMIZATIONS:\n- Trim redundant adjectives.\n- Prefer active voice.\n- Avoid future tense where present tense works.\n\nFAIL CONDITIONS (AVOID):\n- Additional JSON keys not specified.\n- Prose outside the JSON root object.\n- Using markdown code fences around the whole JSON.\n\nContext: ${ctxJson}`;
-  const attempts = 3;
-  let lastErr: any;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      const completion = await client.chat.completions.create({
-        model: process.env.OPENROUTER_MODEL || 'qwen/qwen3-235b-a22b:free',
-        temperature: 0.4,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user + `\nAttempt:${i + 1}` }
-        ]
-      } as any);
-      const text = completion.choices?.[0]?.message?.content?.trim() || '';
-      if (!text) throw new Error('Empty response');
-      const cleaned = text.replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```\s*$/, '').trim();
-      const parsed = extractJsonBlock(cleaned);
-      const arr = (v: any) => Array.isArray(v) ? v.map(String) : [];
-      // Normalize copilot instructions filename (convert QUICKSTART.md variants to copilot-instructions.md)
-      const rawCopilot = parsed.copilotInstructions && parsed.copilotInstructions.content
-        ? parsed.copilotInstructions
-        : { filename: 'copilot-instructions.md', content: '# Quick Start\nAI output missing instructions.' };
-      const normalizedName = /quickstart\.md/i.test(rawCopilot.filename || '') ? 'copilot-instructions.md' : 'copilot-instructions.md';
-      const phase: QuickStartPhase = {
-        installCommands: arr(parsed.installCommands),
-        copilotInstructions: { filename: normalizedName, content: rawCopilot.content },
-        packageScripts: parsed.packageScripts && typeof parsed.packageScripts === 'object' ? parsed.packageScripts : {},
-        envExample: arr(parsed.envExample),
-        packageManager: pm,
-        // Always stamp generation time locally to avoid accepting stale/incorrect timestamps from model output
-        generatedAt: new Date().toISOString()
-      };
-      if (!phase.installCommands.length) throw new Error('Missing installCommands');
-      return phase;
-    } catch (e) {
-      lastErr = e;
-      await new Promise(r => setTimeout(r, 400 * (i + 1)));
-    }
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-    console.warn('Quick Start AI failed (OpenRouter), returning minimal fallback:', lastErr?.message || lastErr);
-  }
-  return minimalFallback(plan, packageManager || inferPackageManager());
+	const apiKey = process.env.GEMINI_API_KEY;
+	if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
+	const pm = packageManager || inferPackageManager();
+
+	const genAI = new GoogleGenerativeAI(apiKey);
+	const model = genAI.getGenerativeModel({
+		model: process.env.GEMINI_MODEL || 'gemini-3-pro-preview',
+		generationConfig: {
+			temperature: 1.0, // Recommended for Gemini 3
+		}
+	});
+
+	const minimalContext = {
+		techStack: plan.overview.techStack,
+		tasks: plan.tasks
+	};
+	const ctxJson = JSON.stringify(minimalContext);
+	const system = 'You are a senior full-stack architect. Output ONLY raw JSON for a Quick Start guide (no markdown fences).';
+	const user = `Produce a single JSON object with shape {"installCommands":string[],"copilotInstructions":{"filename":string,"content":string},"packageScripts":Record<string,string>,"envExample":string[],"packageManager":"npm"|"yarn"|"pnpm"|"bun","generatedAt":string} for packageManager='${pm}'.\n\nABSOLUTE RULES:\n- Output ONLY raw JSON (no markdown fences, no commentary before/after).\n- JSON must be syntactically valid on first parse.\n- Do NOT escape markdown characters inside copilotInstructions.content unnecessarily.\n- Keep copilotInstructions.content under 170 lines (hard cap) and < 12,000 characters.\n- Focus content on actionable quick start guidance only. No motivational fluff.\n- Use the provided tech stack ONLY for dependencies/scripts.\n\nCONTENT FORMAT SPEC FOR copilotInstructions.content (Markdown):\n# Project Quick Start\n1. Overview (1 short paragraph: purpose of the plan)\n2. Tech Stack (bulleted list using plan.overview.techStack)\n3. Install\n   - List install commands (these MUST mirror installCommands array exactly, each as inline code)\n4. Scripts\n   - Table or bullet list of script name => description (infer concise description)\n5. Environment Variables\n   - Bullet each variable: NAME - purpose (must mirror envExample list; do not invent extras)\n   - Provide a fenced shell snippet with example exports (.env style, no comments inline)\n6. Development Workflow\n   - Steps: Plan -> Scaffold -> Implement -> Test -> Review -> Merge -> Deploy\n   - Each step: 1 concise actionable sentence\n7. Coding Standards\n   - TypeScript / React rules (imports order, naming, hooks rules, no default export if not needed, etc.)\n   - Linting & formatting (mention ESLint + Prettier)\n   - Commit convention (Conventional Commits pattern with examples)\n8. Architecture Outline\n   - Describe (Domain, Application, Infrastructure, UI) in short bullets\n9. Task Types\n   - Feature, Refactor, Bug, Chore, Test (each: one-line definition)\n10. Vibe Coding Section (AI-Generated)\n   - Include a section generated by you (the AI) that sets a collaborative and encouraging tone for the development process. This can include a motivational quote, a brief note on teamwork, or a fun fact related to the project's tech stack.\n11. AI Collaboration Protocol\n   - Request Format, Edit Plan Requirement (1..n), Single-change commits, Review prompts\n12. Definition of Done\n   - Bullet checklist: tests pass, types clean, accessibility baseline, security review, docs updated\n13. Security & Compliance\n   - Input validation, auth (if present), secrets handling, dependency updates cadence\n14. Testing Strategy\n   - Pyramid: unit > integration > e2e (brief) + what to test vs skip\n15. Performance & Observability\n   - Metrics to watch, logging guidance (structured), avoid premature optimization notes\n16. Accessibility Checklist\n   - Bullets: semantic HTML, aria-labels, color contrast, focus order, keyboard nav\n17. Next Suggested Actions\n   - 3 actionable next tasks derived from the earliest unstarted high-level tasks in provided plan.tasks (truncate each to < 80 chars)\n\nCONSTRAINTS & VALIDATION:\n- copilotInstructions.filename MUST be "copilot-instructions.md" exactly.\n- No section numbers should contain trailing periods.\n- No empty sections. If data missing, omit the bullet instead of fabricating.\n- envExample MUST NOT include placeholder secrets unless implied (auth/db/third-party keys).\n- generatedAt: current ISO 8601 timestamp.\n- installCommands: must include framework core dependencies from stack only (avoid duplicates).\n- Scripts: include dev/build/start/lint plus test if testing libs appear in stack.\n\nOPTIMIZATIONS:\n- Trim redundant adjectives.\n- Prefer active voice.\n- Avoid future tense where present tense works.\n\nFAIL CONDITIONS (AVOID):\n- Additional JSON keys not specified.\n- Prose outside the JSON root object.\n- Using markdown code fences around the whole JSON.\n\nContext: ${ctxJson}`;
+	const attempts = 3;
+	let lastErr: any;
+	for (let i = 0; i < attempts; i++) {
+		try {
+			const result = await model.generateContent({
+				contents: [
+					{ role: 'user', parts: [{ text: system + "\n\n" + user + `\nAttempt:${i + 1}` }] }
+				]
+			});
+			const text = result.response.text().trim();
+			if (!text) throw new Error('Empty response');
+			const cleaned = text.replace(/^```json\s*/i, '').replace(/^```/, '').replace(/```\s*$/, '').trim();
+			const parsed = extractJsonBlock(cleaned);
+			const arr = (v: any) => Array.isArray(v) ? v.map(String) : [];
+			// Normalize copilot instructions filename (convert QUICKSTART.md variants to copilot-instructions.md)
+			const rawCopilot = parsed.copilotInstructions && parsed.copilotInstructions.content
+				? parsed.copilotInstructions
+				: { filename: 'copilot-instructions.md', content: '# Quick Start\nAI output missing instructions.' };
+			const normalizedName = /quickstart\.md/i.test(rawCopilot.filename || '') ? 'copilot-instructions.md' : 'copilot-instructions.md';
+			const phase: QuickStartPhase = {
+				installCommands: arr(parsed.installCommands),
+				copilotInstructions: { filename: normalizedName, content: rawCopilot.content },
+				packageScripts: parsed.packageScripts && typeof parsed.packageScripts === 'object' ? parsed.packageScripts : {},
+				envExample: arr(parsed.envExample),
+				packageManager: pm,
+				// Always stamp generation time locally to avoid accepting stale/incorrect timestamps from model output
+				generatedAt: new Date().toISOString()
+			};
+			if (!phase.installCommands.length) throw new Error('Missing installCommands');
+			return phase;
+		} catch (e) {
+			lastErr = e;
+			await new Promise(r => setTimeout(r, 400 * (i + 1)));
+		}
+	}
+	if (process.env.NODE_ENV !== 'production') {
+		// eslint-disable-next-line no-console
+		console.warn('Quick Start AI failed (Gemini), returning minimal fallback:', lastErr?.message || lastErr);
+	}
+	return minimalFallback(plan, packageManager || inferPackageManager());
 }
 
 export async function generateQuickStartPhase(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
-  return generateQuickStartPhaseAI(plan, packageManager);
+	return generateQuickStartPhaseAI(plan, packageManager);
 }

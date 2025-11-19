@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 
 // Default model names
-const GEMINI_MODEL = process.env.GEMINI_MODEL!;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
 // Model used via OpenRouter (DeepSeek served through OpenRouter). Uses OPENROUTER_* env vars instead of OPENAI_* now.
 const DEEPSEEK_MODEL = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-r1-0528:free';
 
@@ -103,9 +103,9 @@ export async function generatePlanWithGemini(input: ProjectInput): Promise<Proje
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
     generationConfig: {
-      // Slightly higher temperature for more creative analysis/design while still deterministic enough for JSON
-      temperature: 0.55,
-      maxOutputTokens: 32000,
+      // Gemini 3 defaults to thinking_level: "high"
+      temperature: 1.0, // Recommended for Gemini 3
+      maxOutputTokens: 64000,
     }
   });
   const prompt = buildPrompt(input);
@@ -216,7 +216,7 @@ export async function refinePlanSectionWithGemini(plan: ProjectPlan, section: st
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL,
-    generationConfig: { temperature: 0.6, maxOutputTokens: 16000 }
+    generationConfig: { temperature: 1.0, maxOutputTokens: 64000 }
   });
 
   const shape = SECTION_SHAPES[section];
@@ -314,11 +314,11 @@ function parsePlanJSON(text: string): ProjectPlan {
 
 export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
   console.log('[AI Planner] generatePlan invoked');
-  // Default model now set to deepseek via OpenRouter unless caller overrides
-  const choice = input.modelChoice || 'deepseek';
+  // Default model now set to gemini unless caller overrides
+  const choice = input.modelChoice || 'gemini';
   console.log('[AI Planner] Model choice', choice);
   try {
-    const primary = (choice === 'deepseek') ? 'deepseek' : 'gemini';
+    const primary = (choice === 'gemini') ? 'gemini' : 'deepseek';
     const secondary = primary === 'gemini' ? 'deepseek' : 'gemini';
     let result: ProjectPlan | null = null;
     try {

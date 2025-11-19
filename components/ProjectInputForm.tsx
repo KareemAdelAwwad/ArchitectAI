@@ -164,7 +164,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                 <SelectContent>
                   <SelectItem value="deepseek">Deepseek R1</SelectItem>
                   <SelectItem value="gemini">
-                    Gemini 2.5 Pro
+                    Gemini 3 Pro
                     {/* <span className="text-xs text-neutral-500">(deprecated)</span> */}
                   </SelectItem>
                 </SelectContent>
@@ -292,7 +292,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Model</p>
-                <p>{formData.modelChoice === 'deepseek' ? 'Deepseek R1' : 'Gemini 2.5 Pro'}</p>
+                <p>{formData.modelChoice === 'deepseek' ? 'Deepseek R1' : 'Gemini 3 Pro'}</p>
               </div>
             </div>
             <div>
