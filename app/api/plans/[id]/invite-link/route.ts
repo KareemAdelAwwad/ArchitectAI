@@ -22,8 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await db.collection('plan_invites').insertOne({ planId: params.id, token, role, creatorId: session.user.id, createdAt: new Date(), expiresAt, used: false });
   // Provide a user-facing URL that, when visited after authentication, will auto-join the plan
   // Plan page will detect ?inviteToken= and consume it server-side.
-  // Ensure absolute URL; fallback to localhost during development if env not provided.
-  const base = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  // Ensure absolute URL; fallback to request origin if env not provided.
+  const base = (process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin).replace(/\/$/, '');
   return NextResponse.json({ token, url: `${base}/plans/${params.id}?inviteToken=${token}` });
 }
 
