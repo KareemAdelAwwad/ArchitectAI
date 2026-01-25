@@ -6,6 +6,7 @@ import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlan
 import { getDb } from '@/src/infrastructure/db/mongoClient';
 import { listPlans } from '@/src/application/usecases/listPlans';
 import { createPlan } from '@/src/application/usecases/createPlan';
+import { ObjectId } from 'mongodb';
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
     const plans = await listPlans(repo, session.user.id);
     const db = await getDb();
     const allUserIds = Array.from(new Set(plans.flatMap(p => [p.userId, ...(p.collaborators || []).map(c => c.userId)])));
-    const objectIds = allUserIds.filter(id => id && id.length === 24).map(id => new (require('mongodb').ObjectId)(id));
+    const objectIds = allUserIds.filter(id => id && id.length === 24).map(id => new ObjectId(id));
     const userDocs = await db.collection('users').find({ $or: [{ id: { $in: allUserIds } }, { _id: { $in: objectIds } }] }).project({ id: 1, email: 1, image: 1, name: 1 }).toArray();
     const userMap: Record<string, any> = {};
     userDocs.forEach(u => { const key = u.id || u._id?.toString(); if (key) userMap[key] = u; });
