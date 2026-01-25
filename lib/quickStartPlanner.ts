@@ -4,13 +4,27 @@ import path from 'path';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Retain only minimal package manager inference; all other logic-based planning removed per request.
-function inferPackageManager(): QuickStartPhase['packageManager'] {
+async function inferPackageManager(): Promise<QuickStartPhase['packageManager']> {
 	try {
 		const root = process.cwd();
-		if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) return 'pnpm';
-		if (fs.existsSync(path.join(root, 'yarn.lock'))) return 'yarn';
-		if (fs.existsSync(path.join(root, 'bun.lockb'))) return 'bun';
-		if (fs.existsSync(path.join(root, 'package-lock.json'))) return 'npm';
+		const exists = async (f: string) => {
+			try {
+				await fs.promises.stat(path.join(root, f));
+				return true;
+			} catch {
+				return false;
+			}
+		};
+		const [hasPnpm, hasYarn, hasBun, hasNpm] = await Promise.all([
+			exists('pnpm-lock.yaml'),
+			exists('yarn.lock'),
+			exists('bun.lockb'),
+			exists('package-lock.json')
+		]);
+		if (hasPnpm) return 'pnpm';
+		if (hasYarn) return 'yarn';
+		if (hasBun) return 'bun';
+		if (hasNpm) return 'npm';
 	} catch { }
 	return 'npm';
 }
@@ -287,7 +301,7 @@ function extractJsonBlock(text: string): any {
 async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
 	const apiKey = process.env.GEMINI_API_KEY;
 	if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
-	const pm = packageManager || inferPackageManager();
+	const pm = packageManager || await inferPackageManager();
 
 	const genAI = new GoogleGenerativeAI(apiKey);
 	const model = genAI.getGenerativeModel({
@@ -343,7 +357,7 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
 		// eslint-disable-next-line no-console
 		console.warn('Quick Start AI failed (Gemini), returning minimal fallback:', lastErr?.message || lastErr);
 	}
-	return minimalFallback(plan, packageManager || inferPackageManager());
+	return minimalFallback(plan, packageManager || await inferPackageManager());
 }
 
 export async function generateQuickStartPhase(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
