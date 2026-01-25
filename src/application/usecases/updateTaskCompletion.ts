@@ -7,8 +7,14 @@ export async function updateTaskCompletion(repo: PlanRepository, userId: string,
   const cats: (keyof typeof tasks)[] = ['frontend', 'backend', 'integration', 'deployment'];
   let found = false;
   for (const c of cats) {
-    tasks[c] = tasks[c].map(t => t.id === taskId ? { ...t, completed } : t);
-    if (!found && tasks[c].some(t => t.id === taskId)) found = true;
+    const idx = tasks[c].findIndex(t => t.id === taskId);
+    if (idx !== -1) {
+      const newTasks = [...tasks[c]];
+      newTasks[idx] = { ...newTasks[idx], completed };
+      tasks[c] = newTasks;
+      found = true;
+      break;
+    }
   }
   if (!found) return false;
   return repo.updateTasks(userId, planId, tasks);
