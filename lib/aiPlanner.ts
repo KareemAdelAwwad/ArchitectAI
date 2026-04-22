@@ -1,11 +1,8 @@
 import { ProjectInput, ProjectPlan, Task } from '@/types/project';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 
-// Default model names
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
-// Model used via OpenRouter (DeepSeek served through OpenRouter). Uses OPENROUTER_* env vars instead of OPENAI_* now.
-const DEEPSEEK_MODEL = process.env.OPENROUTER_MODEL || 'deepseek/deepseek-r1-0528:free';
+// Default model name
+const AI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 
 // Lightweight heuristic budget tier classifier to guide the model (string may be free‑form)
 function deriveBudgetTier(budget: string | undefined): {
@@ -94,56 +91,61 @@ smallFrontendOnlyFlag: ${smallProject ? 'true' : 'false'}
 Return ONLY the JSON object.`;
 }
 
-export async function generatePlanWithGemini(input: ProjectInput): Promise<ProjectPlan> {
-  console.log('[AI Planner][Gemini] Starting generation', { title: input.title, model: GEMINI_MODEL });
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('Missing GEMINI_API_KEY');
+export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
+  console.log('[AI Planner] Starting generation', { title: input.title, model: AI_MODEL });
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('Missing OPENAI_API_KEY');
   }
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    generationConfig: {
-      // Gemini 3 defaults to thinking_level: "high"
-      temperature: 1.0, // Recommended for Gemini 3
-      maxOutputTokens: 64000,
-    }
+
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
   });
+
   const prompt = buildPrompt(input);
   const maxRetries = 3;
   let attempt = 0;
   let lastErr: any;
   let text = '';
+
   while (attempt < maxRetries) {
     try {
       attempt++;
-      if (attempt > 1) console.log(`[AI Planner][Gemini] Retry attempt ${attempt}`);
-      const result = await model.generateContent(prompt);
-      console.log('[AI Planner][Gemini] Raw response received');
-      text = result.response.text();
+      if (attempt > 1) console.log(`[AI Planner] Retry attempt ${attempt}`);
+      const result = await client.chat.completions.create({
+        model: AI_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 1.0,
+      });
+      console.log('[AI Planner] Raw response received');
+      text = result.choices[0]?.message?.content || '';
       break; // success
     } catch (e: any) {
       lastErr = e;
       const status = e?.status || e?.response?.status;
       const retriable = status >= 500 || status === 429 || !status; // network/internal/ratelimit
-      console.warn('[AI Planner][Gemini] Attempt failed', { attempt, status, retriable });
+      console.warn('[AI Planner] Attempt failed', { attempt, status, retriable });
       if (!retriable || attempt >= maxRetries) {
-        console.error('[AI Planner][Gemini] Giving up after attempts', attempt);
-        throw e; // propagate to higher-level fallback
+        console.error('[AI Planner] Giving up after attempts', attempt);
+        throw e; // propagate
       }
       const backoffMs = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 250);
       await new Promise(r => setTimeout(r, backoffMs));
     }
   }
+
   try {
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
     const json = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
     // Basic normalization: ensure completed present and phase arrays are arrays
     const addCompleted = (tasks: Task[]) => tasks.forEach(t => { if (typeof t.completed !== 'boolean') t.completed = false; });
-    addCompleted(json.tasks.frontend);
-    addCompleted(json.tasks.backend);
-    addCompleted(json.tasks.integration);
-    addCompleted(json.tasks.deployment);
+    if (json.tasks) {
+      if (json.tasks.frontend) addCompleted(json.tasks.frontend);
+      if (json.tasks.backend) addCompleted(json.tasks.backend);
+      if (json.tasks.integration) addCompleted(json.tasks.integration);
+      if (json.tasks.deployment) addCompleted(json.tasks.deployment);
+    }
 
     const ensureArray = (val: any): string[] => {
       if (Array.isArray(val)) return val.map(String);
@@ -178,11 +180,11 @@ export async function generatePlanWithGemini(input: ProjectInput): Promise<Proje
         design.codingStandards = ensureArray(design.codingStandards);
       }
     }
-    (json as any)._source = 'gemini';
+    (json as any)._source = 'openai-proxy';
     return json as ProjectPlan;
   } catch (e) {
-    console.error('Failed to parse Gemini output', e, text);
-    throw new Error('Gemini output parse error');
+    console.error('Failed to parse AI output', e, text);
+    throw new Error('AI output parse error');
   }
 }
 
@@ -209,14 +211,13 @@ const SECTION_SHAPES: Record<string, { type: 'tasks' | 'stringArray' }> = {
   'waterfallPhases.planning.risks': { type: 'stringArray' }
 };
 
-export async function refinePlanSectionWithGemini(plan: ProjectPlan, section: string, instruction: string): Promise<any> {
-  if (!process.env.GEMINI_API_KEY) throw new Error('Missing GEMINI_API_KEY');
+export async function refinePlanSection(plan: ProjectPlan, section: string, instruction: string): Promise<any> {
+  if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY');
   if (!SECTION_SHAPES[section]) throw new Error('Unsupported section');
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    generationConfig: { temperature: 1.0, maxOutputTokens: 64000 }
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
   });
 
   const shape = SECTION_SHAPES[section];
@@ -240,8 +241,13 @@ Rules:
 7. value must not be empty unless instruction explicitly requests clearing.
 Begin.`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+  const result = await client.chat.completions.create({
+    model: AI_MODEL,
+    temperature: 1.0,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = result.choices[0]?.message?.content || '';
   try {
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
@@ -257,93 +263,6 @@ Begin.`;
     return parsed.value;
   } catch (e) {
     console.error('Failed to parse section refine output', e, text);
-    throw new Error('Gemini section refine parse error');
-  }
-}
-
-export async function generatePlanWithDeepseek(input: ProjectInput): Promise<ProjectPlan> {
-  console.log('[AI Planner][Deepseek] Starting generation', { title: input.title, model: DEEPSEEK_MODEL });
-  if (!process.env.OPENROUTER_API_KEY) throw new Error('Missing OPENROUTER_API_KEY');
-  // OpenRouter provides an OpenAI-compatible API; we just adjust baseURL & env vars
-  const client = new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1' });
-  const prompt = buildPrompt(input);
-  // Using Responses API to unify handling; fall back to chat.completions if unsupported
-  try {
-    const resp = await client.responses.create({
-      model: DEEPSEEK_MODEL,
-      input: prompt,
-      temperature: 0.55,
-      max_output_tokens: 32000
-    } as any);
-    const text = resp.output_text || JSON.stringify(resp);
-    const parsed = parsePlanJSON(text);
-    (parsed as any)._source = 'deepseek.responses';
-    return parsed;
-  } catch (e) {
-    // Fallback via chat completion style
-    console.warn('[AI Planner][Deepseek] Responses API failed, falling back to chat completions');
-    const chat = await client.chat.completions.create({
-      model: DEEPSEEK_MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.55,
-      max_tokens: 32000
-    });
-    const text = chat.choices?.[0]?.message?.content || '';
-    const parsed = parsePlanJSON(text);
-    (parsed as any)._source = 'deepseek.chat';
-    return parsed;
-  }
-}
-
-function parsePlanJSON(text: string): ProjectPlan {
-  try {
-    const jsonStart = text.indexOf('{');
-    const jsonEnd = text.lastIndexOf('}');
-    const json = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
-    const addCompleted = (tasks: Task[]) => tasks.forEach(t => { if (typeof t.completed !== 'boolean') t.completed = false; });
-    addCompleted(json.tasks.frontend);
-    addCompleted(json.tasks.backend);
-    addCompleted(json.tasks.integration);
-    addCompleted(json.tasks.deployment);
-    return json as ProjectPlan;
-  } catch (e) {
-    console.error('Failed to parse model output', e, text);
-    throw new Error('Model output parse error');
-  }
-}
-
-export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
-  console.log('[AI Planner] generatePlan invoked');
-  // Default model now set to gemini unless caller overrides
-  const choice = input.modelChoice || 'gemini';
-  console.log('[AI Planner] Model choice', choice);
-  try {
-    const primary = (choice === 'gemini') ? 'gemini' : 'deepseek';
-    const secondary = primary === 'gemini' ? 'deepseek' : 'gemini';
-    let result: ProjectPlan | null = null;
-    try {
-      result = primary === 'gemini' ? await generatePlanWithGemini(input) : await generatePlanWithDeepseek(input);
-    } catch (e) {
-      console.warn('[AI Planner] Primary model failed, attempting fallback', { primary, error: (e as any)?.message });
-      try {
-        result = secondary === 'gemini' ? await generatePlanWithGemini(input) : await generatePlanWithDeepseek(input);
-        (result as any)._fallbackFrom = primary;
-      } catch (fallbackErr) {
-        console.error('[AI Planner] Fallback model also failed', { secondary, error: (fallbackErr as any)?.message });
-        throw e; // throw original error for clearer surface cause
-      }
-    }
-    console.log('[AI Planner] Generation succeeded', {
-      source: (result as any)._source, tasks: {
-        frontend: result.tasks.frontend.length,
-        backend: result.tasks.backend.length,
-        integration: result.tasks.integration.length,
-        deployment: result.tasks.deployment.length
-      }
-    });
-    return result;
-  } catch (e) {
-    console.error('[AI Planner] Generation failed, throwing to caller', e);
-    throw e;
+    throw new Error('AI section refine parse error');
   }
 }

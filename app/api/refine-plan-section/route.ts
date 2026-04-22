@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb';
 import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { persistRefinedSection } from '@/src/application/usecases/refineSection';
-import { refinePlanSectionWithGemini } from '@/lib/aiPlanner';
+import { refinePlanSection } from '@/lib/aiPlanner';
 import { ProjectPlan } from '@/types/project';
 
 export const runtime = 'nodejs';
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Provide planId or fullPlan' }, { status: 400 });
     }
 
-    const refinedValue = await refinePlanSectionWithGemini(plan, section, instruction);
+    const refinedValue = await refinePlanSection(plan, section, instruction);
 
     // If planId provided, persist change
     if (planId) await persistRefinedSection(repo, session.user.id, planId, section, refinedValue);

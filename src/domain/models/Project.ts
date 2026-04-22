@@ -7,8 +7,6 @@ export interface ProjectInput {
   timeline: string;
   budget: string;
   specificRequirements: string;
-  // Which AI model/provider to use for generation
-  modelChoice?: 'gemini' | 'deepseek';
 }
 
 export interface Task {

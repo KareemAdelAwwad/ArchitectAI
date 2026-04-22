@@ -975,6 +975,6 @@ function HomeClientInternal(props: HomeInit = {}) {
 }
 
 // Root page (/) supplies no initial props.
-export default function Home(props: HomeInit = {}) {
-  return <HomeClientInternal {...props} />;
+export default function Home({ params, searchParams }: any) {
+  return <HomeClientInternal />;
 }

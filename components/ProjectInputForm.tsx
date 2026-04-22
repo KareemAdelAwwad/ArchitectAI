@@ -25,7 +25,7 @@ const commonTechStacks = {
 };
 
 export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
-  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [], modelChoice: 'gemini' });
+  const [formData, setFormData] = useState<Partial<ProjectInput>>({ projectType: undefined, techStack: [] });
   const [customTech, setCustomTech] = useState('');
   const [step, setStep] = useState(0); // 0 Basic, 1 Stack, 2 Details, 3 Review
 
@@ -95,8 +95,7 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
       targetUsers: "Millennials and Gen Z looking to get a better handle on their finances.",
       timeline: "2-3 months",
       budget: "$5K - $10K",
-      specificRequirements: "Securely handle sensitive financial data, provide real-time data synchronization, and ensure the AI recommendations are relevant and actionable. The UI should be modern, intuitive, and mobile-responsive.",
-      modelChoice: 'gemini'
+      specificRequirements: "Securely handle sensitive financial data, provide real-time data synchronization, and ensure the AI recommendations are relevant and actionable. The UI should be modern, intuitive, and mobile-responsive."
     });
     // Optionally, move the user to the review step to see the populated data
     setStep(steps.length - 1);
@@ -154,19 +153,6 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                   <SelectItem value="Frontend">Frontend Only</SelectItem>
                   <SelectItem value="Backend">Backend Only</SelectItem>
                   <SelectItem value="Full Stack">Full Stack Application</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="modelChoice">AI Model</Label>
-              <Select value={formData.modelChoice} onValueChange={(value) => setFormData(prev => ({ ...prev, modelChoice: value as any }))}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select model" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="deepseek">Deepseek R1</SelectItem>
-                  <SelectItem value="gemini">
-                    Gemini 3 Pro
-                    {/* <span className="text-xs text-neutral-500">(deprecated)</span> */}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -289,10 +275,6 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
               <div className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Type</p>
                 <p>{formData.projectType}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Model</p>
-                <p>{formData.modelChoice === 'deepseek' ? 'Deepseek R1' : 'Gemini 3 Pro'}</p>
               </div>
             </div>
             <div>
