@@ -1,7 +1,7 @@
 export interface ProjectInput {
   title: string;
   description: string;
-  projectType: 'Frontend' | 'Backend' | 'Full Stack';
+  projectType: 'Frontend' | 'Backend' | 'Full Stack' | 'Graduation Project';
   techStack: string[];
   targetUsers: string;
   timeline: string;

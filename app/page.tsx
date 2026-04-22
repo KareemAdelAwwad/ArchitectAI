@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -975,6 +975,27 @@ function HomeClientInternal(props: HomeInit = {}) {
 }
 
 // Root page (/) supplies no initial props.
-export default function Home({ params, searchParams }: any) {
-  return <HomeClientInternal />;
+export default function Home(
+  props: HomeInit & {
+    params?: unknown;
+    searchParams?: unknown;
+  } = {}
+) {
+  const { initialPlan, initialPlanId, initialIsOwner, initialCollaboratorRole } = props;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center" data-page>
+          <Spinner size="lg" label="Loading page" />
+        </div>
+      }
+    >
+      <HomeClientInternal
+        initialPlan={initialPlan}
+        initialPlanId={initialPlanId}
+        initialIsOwner={initialIsOwner}
+        initialCollaboratorRole={initialCollaboratorRole}
+      />
+    </Suspense>
+  );
 }
