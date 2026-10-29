@@ -6,7 +6,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Gemini API](https://img.shields.io/badge/Google_Gemini-3.1_Pro-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![BYOK Architecture](https://img.shields.io/badge/AI_Engine-BYOK_%26_OpenAI--Compatible-8A2BE2?style=for-the-badge)](https://ai.google.dev/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.3-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
@@ -21,27 +21,33 @@
 
 Building complex software requires rigorous planning: defining requirements, mapping relational schemas, designing REST/GraphQL API contracts, and structuring tasks. 
 
-**Architect AI** automates this entire discovery phase. By leveraging **Google Gemini 3.1 Pro**, the engine synthesizes high-level project ideas into comprehensive Waterfall and Agile specifications, cutting down architecture planning time from days to minutes.
+**Architect AI** automates this entire discovery phase. Featuring a flexible **Bring Your Own Key (BYOK)** architecture with first-class support for **OpenAI-compatible endpoints** (Google Gemini, OpenAI GPT-4o, OpenRouter, Groq, and local Ollama/vLLM models), the engine synthesizes high-level project ideas into comprehensive Waterfall and Agile specifications, cutting down architecture planning time from days to minutes.
 
 ---
 
 ## ✨ Key Features
 
-### 📋 1. Automated Waterfall Specification Engine
+### 🔑 1. Bring Your Own Key (BYOK) & Multi-Provider Support
+* **Multi-Provider Presets:** Built-in 1-click presets for **Google Gemini** (free tier), **OpenAI** (GPT-4o), **OpenRouter**, and **Groq**.
+* **OpenAI-Compatible Custom Endpoints:** Connect any local or self-hosted endpoint (such as `http://localhost:11434/v1` for **Ollama**, **vLLM**, or **LM Studio**).
+* **Zero Database Key Storage:** Keys are saved strictly in client-side browser `localStorage` and sent over HTTPS request headers. User API credentials are never written to MongoDB or server logs.
+* **Connection Tester:** Test and validate your credentials and target model before starting a generation.
+
+### 📋 2. Automated Waterfall Specification Engine
 * Generates full **Product Requirement Documents (PRDs)** with user stories, edge cases, and acceptance criteria.
 * Produces **Entity-Relationship Data Schemas** with relational types, indexes, and primary/foreign keys.
 * Crafts **REST & GraphQL API Contracts** including request/response schemas, status codes, and auth requirements.
 * Breaks down implementations into phased, actionable engineering tasks.
 
-### ⚡ 2. "Vibe Coder" One-Shot Prompt Synthesizer
-* Compiles complex, multi-tiered architectures into high-density **one-shot system prompts** optimized for AI coding assistants (Cursor, Claude, Copilot).
+### ⚡ 3. "Vibe Coder" One-Shot Prompt Synthesizer
+* Compiles complex, multi-tiered architectures into high-density **one-shot system prompts** optimized for AI coding assistants (Cursor, Claude 3.5 Sonnet, Copilot).
 * Bridges the gap between high-level architectural intent and deterministic code generation.
 
-### 🚀 3. Dynamic Quick-Start Scaffolder
+### 🚀 4. Dynamic Quick-Start Scaffolder
 * Automatically generates starter directory file trees tailored to the project stack.
 * Produces production-ready `package.json` configurations with pinned dependencies.
 
-### 👥 4. Collaborative Workspace & Export
+### 👥 5. Collaborative Workspace & Export
 * Shareable read/write invite links for cross-functional engineering teams.
 * Export specifications to PDF via `pdf-lib` or raw structured JSON for integration into internal tooling.
 
@@ -51,10 +57,11 @@ Building complex software requires rigorous planning: defining requirements, map
 
 ```mermaid
 flowchart TD
-    User([Developer / Product Manager]) -->|Inputs Concept & Constraints| Client[Next.js 14 App Router]
+    User([Developer / Product Manager]) -->|Inputs Concept & Custom AI Config| Client[Next.js 14 App Router]
     
-    subgraph Frontend["Frontend Layer"]
+    subgraph Frontend["Frontend Layer (Client-Side)"]
         Client --> UI[Radix UI + Tailwind CSS]
+        Client --> SettingsModal["BYOK Settings (localStorage)"]
         Client --> Motion[Framer Motion + GSAP Animations]
     end
 
@@ -63,10 +70,13 @@ flowchart TD
         Auth -->|OAuth Flow| GitHub[GitHub OAuth Provider]
     end
 
-    subgraph Engine["AI Planning Engine"]
-        Client -->|API Route Handlers| Orchestrator[Prompt Engineering Pipeline]
-        Orchestrator -->|OpenAI-Compatible SDK| Gemini[Google Gemini 3.1 Pro]
-        Gemini -->|Streamed Structured Specs| Client
+    subgraph Engine["AI Planning Engine (BYOK Router)"]
+        Client -->|x-ai-api-key / x-ai-base-url / x-ai-model| RouteHandlers[Next.js API Handlers]
+        RouteHandlers --> Orchestrator[Prompt Engineering Pipeline]
+        Orchestrator -->|Gemini API| Gemini["Google Gemini (via OpenAI SDK)"]
+        Orchestrator -->|OpenAI API| OpenAIProvider["OpenAI (GPT-4o)"]
+        Orchestrator -->|OpenRouter / Groq| OpenRouter["OpenRouter / Groq"]
+        Orchestrator -->|Local / Custom| Ollama["Ollama / vLLM (Localhost)"]
     end
 
     subgraph Storage["Persistence & Exports"]
@@ -81,7 +91,7 @@ flowchart TD
 
 * **Framework:** Next.js 14 (App Router, Server Actions, Route Handlers)
 * **Language:** TypeScript 5 (Strict Mode)
-* **AI Model:** Google Gemini 3.1 Pro / Gemini 2.5 Pro via OpenAI SDK integration
+* **AI Architecture:** Bring Your Own Key (BYOK) with OpenAI SDK client targeting Gemini, OpenAI, Groq, OpenRouter, and Ollama
 * **Database:** MongoDB Atlas with `@auth/mongodb-adapter`
 * **Authentication:** NextAuth.js (GitHub OAuth)
 * **Styling & UI:** Tailwind CSS, Radix UI Primitives, Lucide Icons, Sonner toasts
@@ -96,8 +106,8 @@ flowchart TD
 * Node.js 18.x or higher
 * npm or pnpm
 * MongoDB Atlas instance (or local MongoDB)
-* Google Gemini API Key
 * GitHub OAuth App (Client ID & Secret)
+* An API key from **Google AI Studio** (Gemini - free tier recommended), **OpenAI**, **OpenRouter**, or a local **Ollama** instance
 
 ### 1. Clone the repository
 ```bash
@@ -128,8 +138,9 @@ NEXTAUTH_SECRET=your_nextauth_secret
 GITHUB_ID=your_github_client_id
 GITHUB_SECRET=your_github_client_secret
 
-# AI Model Configuration (Gemini API via OpenAI-compatible endpoint)
-OPENAI_API_KEY=your_gemini_api_key
+# Optional Server Fallback AI Configuration
+# (Users can provide their own key directly in the web UI)
+OPENAI_API_KEY=optional_server_fallback_key
 OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 OPENAI_MODEL=gemini-2.5-pro
 ```
@@ -141,12 +152,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### 5. Configure your AI Key in the UI
+1. Click the **AI Model** key icon in the top right navigation bar.
+2. Select your provider (**Google Gemini**, **OpenAI**, **OpenRouter**, **Groq**, or **Custom/Ollama**).
+3. Paste your API key (get a free Gemini key from [Google AI Studio](https://aistudio.google.com/app/apikey)).
+4. Click **Test Connection** to verify your endpoint.
+5. Click **Save Configuration** and generate your plan!
+
 ---
 
 ## 🔒 Security & Privacy
 
-* **Zero-Credential Commits:** All secrets, keys, and connection strings are strictly managed via environment variables and prevented from being committed by `.gitignore`.
-* **Database Access:** MongoDB access is isolated and authenticated through TLS-encrypted connections.
+* **Zero Server Key Storage:** User API keys are stored solely in the client browser's `localStorage` and never persisted to the MongoDB Atlas database.
+* **Encrypted Database Access:** MongoDB access is isolated and authenticated through TLS-encrypted connections.
+* **Zero Credential Commits:** Sensitive secrets are managed strictly through deployment environment variables.
 
 ---
 

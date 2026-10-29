@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Plus, Wand2 } from 'lucide-react';
+import { X, Plus, Wand2, Sparkles, KeyRound } from 'lucide-react';
+import AISettingsDialog from '@/components/AISettingsDialog';
+import { getStoredAIConfig, hasValidAIKey } from '@/lib/clientAIConfig';
 import { Spinner } from '@/components/ui/spinner';
 import { ProjectInput } from '@/types/project';
 
@@ -37,6 +39,12 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
   ]), []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiConfig, setAiConfig] = useState(getStoredAIConfig());
+  useEffect(() => {
+    const handleUpdate = () => setAiConfig(getStoredAIConfig());
+    window.addEventListener('architect_ai_config_updated', handleUpdate);
+    return () => window.removeEventListener('architect_ai_config_updated', handleUpdate);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -309,6 +317,16 @@ export default function ProjectInputForm({ onSubmit }: ProjectInputFormProps) {
                 <p className="text-neutral-700 dark:text-neutral-300 text-sm leading-relaxed whitespace-pre-line">{formData.specificRequirements}</p>
               </div>
             )}
+            <div className="flex items-center justify-between p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 text-xs">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                <span className="text-neutral-600 dark:text-neutral-300">
+                  AI Engine: <strong className="text-neutral-900 dark:text-white font-medium">{hasValidAIKey() ? `${aiConfig.provider?.toUpperCase()} (${aiConfig.model})` : 'Offline Heuristic (No Key Set)'}</strong>
+                </span>
+              </div>
+              <AISettingsDialog trigger={<Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700">Change</Button>} />
+            </div>
+
             {!isFormValid && <p className="text-xs text-red-500">Title, description & project type are required.</p>}
           </CardContent>
         </Card>

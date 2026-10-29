@@ -1,6 +1,7 @@
 "use client";
 import AuthButton from "@/components/AuthButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import AISettingsDialog from "@/components/AISettingsDialog";
 import Image from 'next/image';
 import { ReactNode } from "react";
 import Link from "next/link";
@@ -25,8 +26,9 @@ export function TopNav({ right, hideThemeToggle = false }: TopNavProps) {
           />
           <span className="hidden sm:inline tracking-tight text-base font-semibold">Architect AI</span>
         </Link>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
           {right}
+          <AISettingsDialog />
           {!hideThemeToggle && <ThemeToggle />}
           <AuthButton />
         </div>

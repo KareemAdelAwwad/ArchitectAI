@@ -1,4 +1,5 @@
 import { ProjectInput, ProjectPlan, Task } from '@/types/project';
+import { AIClientConfig } from '@/types/ai';
 import OpenAI from 'openai';
 
 // Default model name
@@ -91,15 +92,19 @@ smallFrontendOnlyFlag: ${smallProject ? 'true' : 'false'}
 Return ONLY the JSON object.`;
 }
 
-export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
-  console.log('[AI Planner] Starting generation', { title: input.title, model: AI_MODEL });
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('Missing OPENAI_API_KEY');
+export async function generatePlan(input: ProjectInput, aiConfig?: AIClientConfig): Promise<ProjectPlan> {
+  const apiKey = aiConfig?.apiKey?.trim() || process.env.OPENAI_API_KEY;
+  const baseURL = aiConfig?.baseURL?.trim() || process.env.OPENAI_BASE_URL;
+  const model = aiConfig?.model?.trim() || process.env.OPENAI_MODEL || 'gemini-2.5-pro';
+
+  console.log('[AI Planner] Starting generation', { title: input.title, model, baseURL: baseURL || 'default' });
+  if (!apiKey && !baseURL?.includes('localhost')) {
+    throw new Error('Missing AI API key. Please configure your API key in AI Settings.');
   }
 
   const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL,
+    apiKey: apiKey || 'dummy',
+    baseURL: baseURL || undefined,
   });
 
   const prompt = buildPrompt(input);
@@ -113,7 +118,7 @@ export async function generatePlan(input: ProjectInput): Promise<ProjectPlan> {
       attempt++;
       if (attempt > 1) console.log(`[AI Planner] Retry attempt ${attempt}`);
       const result = await client.chat.completions.create({
-        model: AI_MODEL,
+        model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 1.0,
       });
@@ -211,13 +216,19 @@ const SECTION_SHAPES: Record<string, { type: 'tasks' | 'stringArray' }> = {
   'waterfallPhases.planning.risks': { type: 'stringArray' }
 };
 
-export async function refinePlanSection(plan: ProjectPlan, section: string, instruction: string): Promise<any> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('Missing OPENAI_API_KEY');
+export async function refinePlanSection(plan: ProjectPlan, section: string, instruction: string, aiConfig?: AIClientConfig): Promise<any> {
+  const apiKey = aiConfig?.apiKey?.trim() || process.env.OPENAI_API_KEY;
+  const baseURL = aiConfig?.baseURL?.trim() || process.env.OPENAI_BASE_URL;
+  const model = aiConfig?.model?.trim() || process.env.OPENAI_MODEL || 'gemini-2.5-pro';
+
+  if (!apiKey && !baseURL?.includes('localhost')) {
+    throw new Error('Missing AI API key. Please configure your API key in AI Settings.');
+  }
   if (!SECTION_SHAPES[section]) throw new Error('Unsupported section');
 
   const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL,
+    apiKey: apiKey || 'dummy',
+    baseURL: baseURL || undefined,
   });
 
   const shape = SECTION_SHAPES[section];
@@ -242,7 +253,7 @@ Rules:
 Begin.`;
 
   const result = await client.chat.completions.create({
-    model: AI_MODEL,
+    model,
     temperature: 1.0,
     messages: [{ role: 'user', content: prompt }],
   });

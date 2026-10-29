@@ -5,6 +5,9 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '@/src/infrastructure/db/mongoClient';
 import crypto from 'crypto';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // POST: generate invite link (owner only). Body { role }
 // PUT: consume invite link (authenticated user joins with token) Body { token }
 
@@ -48,6 +51,6 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       { $push: { collaborators: { userId: session.user.id, role: invite.role } }, $set: { updatedAt: new Date() } } as any
     );
   }
-  await db.collection('plan_invites').updateOne({ _id: invite._id }, { $set: { used: true, usedAt: new Date(), usedBy: session.user.id } });
-  return NextResponse.json({ success: true, role: invite.role });
+  await db.collection('plan_invites').updateOne({ token }, { $set: { used: true, usedBy: session.user.id, usedAt: new Date() } });
+  return NextResponse.json({ success: true, planId: params.id, role: invite.role });
 }

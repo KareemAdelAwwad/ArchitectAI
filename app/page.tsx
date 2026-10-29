@@ -34,6 +34,7 @@ import DarkVeil from '@/components/ui/DarkVeil';
 import Link from 'next/link';
 import LandingFooter from '@/components/LandingFooter';
 import { toast } from '@/hooks/use-toast';
+import { getAIHeaders, hasValidAIKey } from '@/lib/clientAIConfig';
 
 // NOTE: Moved HomeClient to components/HomeClient.tsx for type isolation.
 // Keeping implementation here to avoid large refactor; removing named export to satisfy Next type checker.
@@ -236,7 +237,10 @@ function HomeClientInternal(props: HomeInit = {}) {
     try {
       const res = await fetch('/api/refine-plan-section', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAIHeaders()
+        },
         body: JSON.stringify({ planId: currentPlanId, fullPlan: currentPlanId ? undefined : projectPlan, section: editSection, instruction: aiInstruction })
       });
       if (!res.ok) throw new Error(await res.text());
@@ -293,6 +297,13 @@ function HomeClientInternal(props: HomeInit = {}) {
   }, [currentStep, processingProgress]);
 
   const handleProjectSubmit = async (projectInput: ProjectInput) => {
+    if (!hasValidAIKey()) {
+      toast({
+        title: 'Using Local Fallback Planner',
+        description: 'No AI key configured. Using offline heuristic planner. Set your API key in AI Model (top right) for Gemini/GPT-4o.',
+      });
+    }
+
     setCurrentStep('processing');
     setProcessingProgress(0);
     setPendingPlan(null);
@@ -304,7 +315,10 @@ function HomeClientInternal(props: HomeInit = {}) {
       try {
         const res = await fetch('/api/generate-plan', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAIHeaders()
+          },
           body: JSON.stringify({ input: projectInput })
         });
         if (!res.ok) throw new Error('AI generation failed');
@@ -804,7 +818,10 @@ function HomeClientInternal(props: HomeInit = {}) {
                           setLoadingQuickStart(true);
                           const res = await fetch('/api/quick-start-phase', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...getAIHeaders()
+                            },
                             body: JSON.stringify({ planId: currentPlanId, fullPlan: currentPlanId ? undefined : projectPlan, packageManager: pm, force: !!projectPlan.waterfallPhases.quickStart })
                           });
                           if (!res.ok) {

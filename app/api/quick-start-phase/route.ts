@@ -5,9 +5,18 @@ import { authOptions } from '@/lib/auth';
 import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlanRepository';
 import { generateQuickStartPhase } from '@/lib/quickStartPlanner';
 import { ProjectPlan } from '@/types/project';
+import { AIClientConfig } from '@/types/ai';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function getAIConfig(req: NextRequest, body?: any): AIClientConfig {
+  return {
+    apiKey: req.headers.get('x-ai-api-key') || body?.aiConfig?.apiKey || undefined,
+    baseURL: req.headers.get('x-ai-base-url') || body?.aiConfig?.baseURL || undefined,
+    model: req.headers.get('x-ai-model') || body?.aiConfig?.model || undefined,
+  };
+}
 
 /*
 POST /api/quick-start-phase
@@ -55,7 +64,8 @@ export async function POST(req: NextRequest) {
       } catch { /* non-fatal timestamp normalization */ }
       return NextResponse.json({ quickStart: plan.waterfallPhases.quickStart, cached: true });
     }
-    const quickStart = await generateQuickStartPhase(plan, packageManager);
+    const aiConfig = getAIConfig(req, body);
+    const quickStart = await generateQuickStartPhase(plan, packageManager, aiConfig);
     // Persist if planId
     if (planId) {
       await repo.updateSection(session.user.id, planId, 'waterfallPhases.quickStart', quickStart);

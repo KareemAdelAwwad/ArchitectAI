@@ -6,9 +6,18 @@ import { MongoPlanRepository } from '@/src/infrastructure/repositories/MongoPlan
 import { persistRefinedSection } from '@/src/application/usecases/refineSection';
 import { refinePlanSection } from '@/lib/aiPlanner';
 import { ProjectPlan } from '@/types/project';
+import { AIClientConfig } from '@/types/ai';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function getAIConfig(req: NextRequest, body?: any): AIClientConfig {
+  return {
+    apiKey: req.headers.get('x-ai-api-key') || body?.aiConfig?.apiKey || undefined,
+    baseURL: req.headers.get('x-ai-base-url') || body?.aiConfig?.baseURL || undefined,
+    model: req.headers.get('x-ai-model') || body?.aiConfig?.model || undefined,
+  };
+}
 
 /*
 POST /api/refine-plan-section
@@ -43,7 +52,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Provide planId or fullPlan' }, { status: 400 });
     }
 
-    const refinedValue = await refinePlanSection(plan, section, instruction);
+    const aiConfig = getAIConfig(req, body);
+    const refinedValue = await refinePlanSection(plan, section, instruction, aiConfig);
 
     // If planId provided, persist change
     if (planId) await persistRefinedSection(repo, session.user.id, planId, section, refinedValue);

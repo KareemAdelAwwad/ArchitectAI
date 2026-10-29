@@ -1,4 +1,5 @@
 import { ProjectPlan, QuickStartPhase } from '@/types/project';
+import { AIClientConfig } from '@/types/ai';
 import fs from 'fs';
 import path from 'path';
 import OpenAI from 'openai';
@@ -298,14 +299,17 @@ function extractJsonBlock(text: string): any {
 	throw new Error('No valid JSON object found');
 }
 
-async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
-	const apiKey = process.env.OPENAI_API_KEY;
-	if (!apiKey) throw new Error('Missing OPENAI_API_KEY');
+async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager'], aiConfig?: AIClientConfig): Promise<QuickStartPhase> {
+	const apiKey = aiConfig?.apiKey?.trim() || process.env.OPENAI_API_KEY;
+	const baseURL = aiConfig?.baseURL?.trim() || process.env.OPENAI_BASE_URL;
+	const model = aiConfig?.model?.trim() || process.env.OPENAI_MODEL || 'gemini-2.5-pro';
+
+	if (!apiKey && !baseURL?.includes('localhost')) throw new Error('Missing AI API key. Please configure your API key in AI Settings.');
 	const pm = packageManager || await inferPackageManager();
 
 	const client = new OpenAI({
-		apiKey,
-		baseURL: process.env.OPENAI_BASE_URL,
+		apiKey: apiKey || 'dummy',
+		baseURL: baseURL || undefined,
 	});
 
 	const minimalContext = {
@@ -320,7 +324,7 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
 	for (let i = 0; i < attempts; i++) {
 		try {
 			const result = await client.chat.completions.create({
-				model: process.env.OPENAI_MODEL || 'gpt-4o',
+				model,
 				temperature: 1.0,
 				messages: [
 					{ role: 'system', content: system },
@@ -360,6 +364,6 @@ async function generateQuickStartPhaseAI(plan: ProjectPlan, packageManager?: Qui
 	return minimalFallback(plan, packageManager || await inferPackageManager());
 }
 
-export async function generateQuickStartPhase(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager']): Promise<QuickStartPhase> {
-	return generateQuickStartPhaseAI(plan, packageManager);
+export async function generateQuickStartPhase(plan: ProjectPlan, packageManager?: QuickStartPhase['packageManager'], aiConfig?: AIClientConfig): Promise<QuickStartPhase> {
+	return generateQuickStartPhaseAI(plan, packageManager, aiConfig);
 }
